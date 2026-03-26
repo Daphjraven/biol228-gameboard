@@ -53,7 +53,8 @@ input[type="text"],
 input[type="password"],
 textarea,
 button,
-input[type="file"] { width:100%; }
+input[type="file"],
+select { width:100%; }
 
 textarea { min-height:90px; resize:vertical; }
 button, input, textarea { margin-top:6px; padding:8px; }
@@ -98,6 +99,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="password" id="githubTokenInput" placeholder="token with repo contents write access">
 
   <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
+  <button type="button" onclick="refreshGitHubBoards()">Refresh GitHub Boards</button>
+
+  <label for="githubBoardsSelect">Saved boards in GitHub folder</label>
+  <select id="githubBoardsSelect">
+    <option value="">Choose a saved board...</option>
+  </select>
+  <button type="button" onclick="loadSelectedGitHubBoard()">Load Selected GitHub Board</button>
   <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
 
   <label for="externalUrlInput">External JSON URL</label>
@@ -126,6 +134,7 @@ const githubRepoInput = document.getElementById('githubRepoInput');
 const githubBranchInput = document.getElementById('githubBranchInput');
 const githubFolderInput = document.getElementById('githubFolderInput');
 const githubTokenInput = document.getElementById('githubTokenInput');
+const githubBoardsSelect = document.getElementById('githubBoardsSelect');
 
 let pieces = [];
 let selected = null;
@@ -356,6 +365,65 @@ async function saveSessionToGitHub(){
   }
 }
 
+function populateGitHubBoards(items) {
+  githubBoardsSelect.innerHTML = '<option value="">Choose a saved board...</option>';
+  items.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.url;
+    option.textContent = item.label;
+    githubBoardsSelect.appendChild(option);
+  });
+}
+
+async function refreshGitHubBoards(){
+  const owner = githubOwnerInput.value.trim();
+  const repo = githubRepoInput.value.trim();
+  const branch = githubBranchInput.value.trim() || 'main';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const token = githubTokenInput.value.trim();
+
+  if (!owner || !repo) {
+    setStatus('Fill in GitHub owner and repository first.');
+    return;
+  }
+
+  try {
+    setStatus('Loading saved boards from GitHub...');
+    const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${folder.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`;
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(endpoint, { headers });
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const data = await res.json();
+
+    const boards = (Array.isArray(data) ? data : [])
+      .filter(item => item.type === 'file' && /\.json$/i.test(item.name))
+      .map(item => ({
+        label: item.name.replace(/\.json$/i, ''),
+        url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${folder}/${item.name}`
+      }));
+
+    populateGitHubBoards(boards);
+    setStatus(boards.length ? `Loaded ${boards.length} saved board(s) from GitHub.` : 'No saved JSON boards found in that GitHub folder.');
+  } catch (e) {
+    alert('Could not load saved boards from GitHub.');
+    setStatus('Could not load saved boards from GitHub. ' + e.message);
+  }
+}
+
+async function loadSelectedGitHubBoard(){
+  const selectedUrl = githubBoardsSelect.value;
+  if (!selectedUrl) {
+    setStatus('Choose a saved GitHub board first.');
+    return;
+  }
+  await loadExternalJson(selectedUrl);
+}
+
 function makeEmbedLink(){
   const rawUrl = externalUrlInput.value.trim();
   if (!rawUrl) {
@@ -385,6 +453,9 @@ async function loadFromQueryParam(){
     await loadFromQueryParam();
   }
   render();
+  if (githubOwnerInput.value.trim() && githubRepoInput.value.trim()) {
+    refreshGitHubBoards();
+  }
 })();
 </script>
 
