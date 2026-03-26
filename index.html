@@ -3,19 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chem Sandbox with Question Pieces</title>
+  <title>Game Board Sandbox</title>
   <style>
     :root {
-      --grid: 64px;
-      --panel: #ffffff;
-      --line: #d7deea;
+      --panel-bg: rgba(255,255,255,0.9);
+      --border: #cfd8e3;
       --text: #1f2937;
       --muted: #6b7280;
-      --accent: #2563eb;
-      --accent-2: #7c3aed;
-      --good: #15803d;
-      --bad: #b91c1c;
-      --shadow: 0 12px 28px rgba(15, 23, 42, 0.10);
+      --shadow: 0 10px 30px rgba(0,0,0,0.12);
+      --grid-size: 36px;
+      --grid-light: rgba(70, 90, 120, 0.10);
+      --grid-bold: rgba(70, 90, 120, 0.18);
+      --board-bg: #f8fbff;
     }
 
     * { box-sizing: border-box; }
@@ -23,101 +22,94 @@
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f7fb;
       color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(196, 181, 253, 0.15), transparent 30%),
+        #eef4fb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     .app {
       display: grid;
       grid-template-columns: 320px 1fr;
-      gap: 16px;
       min-height: 100vh;
+      gap: 16px;
       padding: 16px;
-    }
-
-    .panel, .stage-wrap, .modal-card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      box-shadow: var(--shadow);
     }
 
     .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
       padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow: auto;
     }
 
     h1 {
-      margin: 0 0 8px;
-      font-size: 1.3rem;
+      margin: 0 0 8px 0;
+      font-size: 1.35rem;
     }
 
-    .sub {
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 1rem;
+    }
+
+    p, label, small {
       color: var(--muted);
       line-height: 1.45;
-      font-size: 0.95rem;
-      margin-bottom: 16px;
     }
 
-    .section {
-      margin-top: 18px;
-    }
-
-    .section h2 {
-      margin: 0 0 10px;
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-    }
-
-    .controls, .bank {
+    .controls {
       display: grid;
       gap: 10px;
     }
 
-    .bank {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    button, input, textarea, select {
+    button,
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
       font: inherit;
+      background: white;
+      color: var(--text);
     }
 
     button {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      border-radius: 14px;
-      padding: 10px 12px;
       cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      font-weight: 600;
+      transition: transform 0.08s ease, box-shadow 0.15s ease;
     }
 
-    button:hover {
-      transform: translateY(-1px);
-      border-color: #b7c4d6;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
-    button.primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-
-    button.secondary {
-      background: var(--accent-2);
-      color: white;
-      border-color: var(--accent-2);
-    }
-
-    .wide {
-      grid-column: 1 / -1;
-    }
-
-    .stage-wrap {
-      padding: 16px;
-      overflow: auto;
+    .board-wrap {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .toolbar {
@@ -125,1024 +117,492 @@
       flex-wrap: wrap;
       gap: 10px;
       align-items: center;
-      margin-bottom: 12px;
     }
 
-    .hint {
+    .toolbar .pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid var(--border);
       color: var(--muted);
       font-size: 0.92rem;
     }
 
-    .board {
+    #board {
       position: relative;
-      width: 1200px;
-      height: 760px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      overflow: hidden;
-      background:
-        linear-gradient(to right, rgba(37,99,235,0.10) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(37,99,235,0.10) 1px, transparent 1px);
-      background-size: var(--grid) var(--grid);
-      background-color: #fff;
+      min-height: calc(100vh - 90px);
+      overflow: auto;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background-color: var(--board-bg);
+      background-image:
+        linear-gradient(var(--grid-bold) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-bold) 1px, transparent 1px),
+        linear-gradient(var(--grid-light) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-light) 1px, transparent 1px);
+      background-size:
+        calc(var(--grid-size) * 5) calc(var(--grid-size) * 5),
+        calc(var(--grid-size) * 5) calc(var(--grid-size) * 5),
+        var(--grid-size) var(--grid-size),
+        var(--grid-size) var(--grid-size);
+      background-position: 0 0, 0 0, 0 0, 0 0;
     }
 
-    .bg-frame {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .piece-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
+    #boardSurface {
+      position: relative;
+      width: 2200px;
+      height: 1400px;
     }
 
     .piece {
       position: absolute;
-      width: 94px;
-      height: 94px;
-      transform: translate(-50%, -50%);
-      display: grid;
-      place-items: center;
-      cursor: grab;
       user-select: none;
       touch-action: none;
-      border-radius: 18px;
+      cursor: grab;
+      border-radius: 12px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.16);
+      outline: 2px solid transparent;
+      transition: outline-color 0.1s ease, transform 0.05s linear;
+      background: transparent;
     }
-
-    .piece:active { cursor: grabbing; }
 
     .piece.selected {
-      outline: 2px dashed rgba(37,99,235,0.85);
-      outline-offset: 4px;
+      outline-color: rgba(37, 99, 235, 0.7);
     }
 
-    .piece.molecule img {
-      max-width: 86px;
-      max-height: 86px;
+    .piece.dragging {
+      cursor: grabbing;
+      z-index: 999;
+    }
+
+    .piece img {
+      display: block;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       pointer-events: none;
-      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));
+      border-radius: 12px;
     }
 
-    .piece.pdf .pdf-card {
-      width: 82px;
-      height: 82px;
-      border-radius: 18px;
+    .thumbs {
       display: grid;
-      place-items: center;
-      background: linear-gradient(145deg, #eff6ff, #eef2ff);
-      color: var(--accent);
-      font-weight: 800;
-      font-size: 1rem;
-      border: 1px solid var(--line);
-      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
-      position: relative;
-      overflow: hidden;
-      pointer-events: none;
-    }
-
-    .piece.pdf .pdf-label {
-      position: absolute;
-      left: 4px;
-      right: 4px;
-      bottom: 4px;
-      background: rgba(255,255,255,0.88);
-      color: var(--muted);
-      font-size: 0.56rem;
-      border-radius: 8px;
-      padding: 2px 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-align: center;
-    }
-
-    .piece.question .token {
-      width: 82px;
-      height: 82px;
-      border-radius: 22px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 0.86rem;
-      color: white;
-      text-align: center;
-      padding: 10px;
-      background: linear-gradient(145deg, #7c3aed, #2563eb);
-      box-shadow: 0 10px 18px rgba(37,99,235,0.25);
-      overflow: hidden;
-      pointer-events: none;
-      position: relative;
-    }
-
-    .piece.question[data-status="solved"] .token {
-      background: linear-gradient(145deg, #16a34a, #15803d);
-    }
-
-    .piece.question[data-status="missed"] .token {
-      background: linear-gradient(145deg, #ef4444, #b91c1c);
-    }
-
-    .piece.question .token small {
-      position: absolute;
-      bottom: 7px;
-      right: 10px;
-      font-size: 0.7rem;
-      opacity: 0.9;
-    }
-
-    .row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px;
-      background: #fbfdff;
-    }
-
-    .stat .label {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-    }
-
-    .stat .value {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-top: 4px;
-    }
-
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 50;
-    }
-
-    .modal.open { display: flex; }
-
-    .modal-card {
-      width: min(680px, 100%);
-      padding: 18px;
-    }
-
-    .modal-head {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 14px;
-    }
-
-    .pill {
-      display: inline-block;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
-      background: #fbfdff;
-    }
-
-    .prompt {
-      font-size: 1.08rem;
-      line-height: 1.55;
-      margin: 8px 0 14px;
-    }
-
-    .choices {
-      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
       gap: 10px;
-      margin: 12px 0;
     }
 
-    .choice-btn {
-      text-align: left;
-      padding: 12px 14px;
+    .thumb {
+      border: 1px solid var(--border);
       border-radius: 14px;
+      background: white;
+      padding: 8px;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
     }
 
-    .choice-btn.correct {
-      border-color: #15803d;
-      background: #ecfdf5;
+    .thumb img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
 
-    .choice-btn.incorrect {
-      border-color: #b91c1c;
-      background: #fef2f2;
-    }
-
-    .input, .textarea {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: #fff;
-    }
-
-    .feedback {
-      min-height: 1.5em;
-      margin-top: 12px;
-      font-weight: 600;
-    }
-
-    .feedback.good { color: var(--good); }
-    .feedback.bad { color: var(--bad); }
-
-    .explanation {
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: #fbfdff;
-      color: var(--text);
-      line-height: 1.5;
-    }
-
-    .muted {
+    .note {
+      font-size: 0.9rem;
       color: var(--muted);
+      background: rgba(255,255,255,0.7);
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
     }
 
-    .file-input {
-      width: 100%;
-    }
+    .hidden { display: none; }
 
-    @media (max-width: 1000px) {
-      .app { grid-template-columns: 1fr; }
-      .board { width: 100%; min-width: 980px; }
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      #board {
+        min-height: 72vh;
+      }
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <aside class="panel">
-      <h1>Question-Piece Sandbox 🎲🧪</h1>
-      <div class="sub">
-        Molecules drift around the board, and special question tokens open quiz cards drawn from a question bank. Your original draw.io board stays locked underneath like a museum floor no one is allowed to repaint.
-      </div>
+    <aside class="sidebar">
+      <section class="panel">
+        <h1>Game Board Sandbox 🎲</h1>
+        <p>Import PNG or JPEG images, drop them onto the board, drag them around like pieces, and save the whole scene into a shareable session URL.</p>
+      </section>
 
-      <div class="section">
-        <h2>Add pieces</h2>
-        <div class="bank" id="bank"></div>
-      </div>
+      <section class="panel controls">
+        <h2>1. Import pieces</h2>
+        <input id="fileInput" type="file" accept="image/png,image/jpeg" multiple />
+        <button id="clearLibraryBtn" type="button">Clear imported library</button>
+        <div id="library" class="thumbs"></div>
+        <small>Each imported image becomes a draggable board piece automatically.</small>
+      </section>
 
-      <div class="section">
-        <h2>Question bank</h2>
-        <div class="controls">
-          <button id="spawnQuestionBtn" class="secondary">Add question piece</button>
-          <button id="shuffleQuestionBtn">Shuffle question pool</button>
-          <input id="jsonFileInput" class="file-input" type="file" accept=".json" />
-          <button id="loadSampleBankBtn">Load sample bank</button>
+      <section class="panel controls">
+        <h2>2. Session URL</h2>
+        <button id="saveUrlBtn" type="button">Generate session URL</button>
+        <textarea id="sessionUrl" rows="6" placeholder="Your generated session URL will appear here..."></textarea>
+        <div class="button-row">
+          <button id="copyUrlBtn" type="button">Copy URL</button>
+          <button id="loadUrlBtn" type="button">Load URL</button>
         </div>
-      </div>
+        <small>Tip: this stores the session directly in the URL hash. Great for lightweight sessions, but very image-heavy boards can make the URL too large for some browsers.</small>
+      </section>
 
-      <div class="section">
-        <h2>PDF import</h2>
-        <div class="controls">
-          <input id="pdfFileInput" class="file-input" type="file" accept=".pdf,application/pdf" />
-          <button id="addPdfBtn">Add imported PDF piece</button>
+      <section class="panel controls">
+        <h2>3. Board tools</h2>
+        <div class="button-row">
+          <button id="deleteSelectedBtn" type="button">Delete selected piece</button>
+          <button id="clearBoardBtn" type="button">Clear board</button>
         </div>
-      </div>
-
-      <div class="section">
-        <h2>Board controls</h2>
-        <div class="controls">
-          <div class="row">
-            <button id="duplicateBtn">Duplicate selected</button>
-            <button id="deleteBtn">Delete selected</button>
-          </div>
-          <div class="row">
-            <button id="clearBtn">Clear all pieces</button>
-            <button id="saveBtn" class="primary">Save layout</button>
-          </div>
-          <button id="loadBtn">Load layout</button>
+        <label>
+          Grid size
+          <input id="gridSizeInput" type="number" min="12" max="120" step="2" value="36" />
+        </label>
+        <button id="applyGridBtn" type="button">Apply grid size</button>
+        <div class="note">
+          Drag pieces to move them. Click a piece to select it. Use Delete or Backspace to remove the selected piece.
         </div>
-      </div>
-
-      <div class="section">
-        <h2>Stats</h2>
-        <div class="stats">
-          <div class="stat">
-            <div class="label">Solved</div>
-            <div class="value" id="solvedCount">0</div>
-          </div>
-          <div class="stat">
-            <div class="label">Missed</div>
-            <div class="value" id="missedCount">0</div>
-          </div>
-          <div class="stat">
-            <div class="label">Questions</div>
-            <div class="value" id="bankCount">0</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Tips</h2>
-        <div class="sub">
-          Click a bank item to spawn it.<br>
-          Double-click a question token to answer it.<br>
-          Import a PDF, place it on the board, and double-click it to open it.<br>
-          Arrow keys nudge selected piece.<br>
-          Delete or Backspace removes selected piece.<br>
-          JSON bank format: an array of question objects.
-        </div>
-      </div>
+      </section>
     </aside>
 
-    <main class="stage-wrap">
-      <div class="toolbar">
-        <div class="hint">Locked background from your diagrams.net board + movable pieces + clickable quiz tokens.</div>
+    <main class="board-wrap">
+      <div class="toolbar panel">
+        <div class="pill">Board surface: 2200 × 1400</div>
+        <div class="pill">Accepted files: PNG, JPEG</div>
+        <div class="pill">Session mode: URL hash</div>
       </div>
 
-      <div class="board" id="board">
-        <iframe
-          class="bg-frame"
-          src="https://viewer.diagrams.net/?border=0&tags=%7B%7D&lightbox=1&highlight=0000ff&edit=_blank&layers=1&nav=1&title=Methylene-Blue%20-%20Chem%20Board.drawio&dark=auto#Uhttps%3A%2F%2Fdrive.google.com%2Fuc%3Fid%3D1cBvoM1jdJKEfZYZy2sJDUvK-hFW-P-Iz%26export%3Ddownload">
-        </iframe>
-        <div class="piece-layer" id="pieceLayer"></div>
-      </div>
+      <section id="board" class="panel">
+        <div id="boardSurface"></div>
+      </section>
     </main>
   </div>
 
-  <div class="modal" id="questionModal" aria-hidden="true">
-    <div class="modal-card">
-      <div class="modal-head">
-        <div>
-          <div class="pill" id="questionTypePill">Question</div>
-          <div class="prompt" id="questionPrompt"></div>
-        </div>
-        <button id="closeModalBtn">Close</button>
-      </div>
-
-      <div id="questionBody"></div>
-      <div class="feedback" id="feedback"></div>
-      <div class="explanation" id="explanationBox" hidden></div>
-
-      <div class="row" style="margin-top: 14px;">
-        <button id="hintBtn">Show hint</button>
-        <button id="revealBtn">Reveal answer</button>
-        <button id="nextBtn" class="primary">Next question</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal" id="pdfModal" aria-hidden="true">
-    <div class="modal-card" style="width:min(900px,100%); padding:18px;">
-      <div class="modal-head">
-        <div>
-          <div class="pill">PDF Viewer</div>
-          <div class="prompt" id="pdfTitle"></div>
-        </div>
-        <button id="closePdfModalBtn">Close</button>
-      </div>
-      <iframe id="pdfFrame" style="width:100%; height:70vh; border:1px solid var(--line); border-radius:14px; background:#fff;"></iframe>
-    </div>
-  </div>
-
   <script>
-    const GRID = 64;
-    const STORAGE_KEY = "chem-sandbox-question-layout-v1";
+    const board = document.getElementById('board');
+    const boardSurface = document.getElementById('boardSurface');
+    const fileInput = document.getElementById('fileInput');
+    const library = document.getElementById('library');
+    const sessionUrl = document.getElementById('sessionUrl');
+    const saveUrlBtn = document.getElementById('saveUrlBtn');
+    const copyUrlBtn = document.getElementById('copyUrlBtn');
+    const loadUrlBtn = document.getElementById('loadUrlBtn');
+    const clearBoardBtn = document.getElementById('clearBoardBtn');
+    const clearLibraryBtn = document.getElementById('clearLibraryBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const gridSizeInput = document.getElementById('gridSizeInput');
+    const applyGridBtn = document.getElementById('applyGridBtn');
 
-    const starterPieces = [
-      {
-        type: "molecule",
-        name: "Methylene Blue",
-        src: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Methylene_blue.svg/512px-Methylene_blue.svg.png"
-      },
-      {
-        type: "molecule",
-        name: "Oxygen",
-        src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Oxygen_molecule.svg/512px-Oxygen_molecule.svg.png"
-      },
-      {
-        type: "molecule",
-        name: "Glucose",
-        src: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Alpha-D-Glucose.svg/512px-Alpha-D-Glucose.svg.png"
-      },
-      {
-        type: "molecule",
-        name: "NADH",
-        src: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Nicotinamide_adenine_dinucleotide_reduced.svg/512px-Nicotinamide_adenine_dinucleotide_reduced.svg.png"
-      }
-    ];
+    let pieces = [];
+    let selectedPieceId = null;
+    let zCounter = 1;
 
-    const sampleQuestionBank = [
-      {
-        id: 1,
-        type: "short-answer",
-        prompt: "What molecule commonly donates electrons in cellular redox chemistry?",
-        answer: ["NADH", "nad h"],
-        hint: "It is the reduced form of NAD+.",
-        explanation: "NADH carries high-energy electrons and often serves as an electron donor in biochemical reactions.",
-        category: "Redox"
-      },
-      {
-        id: 2,
-        type: "multiple-choice",
-        prompt: "Which gas acts as the terminal electron acceptor in aerobic respiration?",
-        choices: ["Nitrogen", "Oxygen", "Carbon dioxide", "Hydrogen"],
-        answer: "Oxygen",
-        hint: "Think lungs, mitochondria, and final electron handoff.",
-        explanation: "In aerobic respiration, oxygen accepts electrons at the end of the electron transport chain.",
-        category: "Respiration"
-      },
-      {
-        id: 3,
-        type: "short-answer",
-        prompt: "What color is oxidized methylene blue?",
-        answer: ["blue"],
-        hint: "Its name is not being subtle.",
-        explanation: "Oxidized methylene blue appears blue. In reduced forms, its appearance can change.",
-        category: "Indicators"
-      },
-      {
-        id: 4,
-        type: "multiple-choice",
-        prompt: "Which of the following is a carbohydrate?",
-        choices: ["Glucose", "Oxygen", "NADH", "ATP synthase"],
-        answer: "Glucose",
-        hint: "Sweet little hexose.",
-        explanation: "Glucose is a simple sugar and a central carbohydrate in metabolism.",
-        category: "Molecules"
-      }
-    ];
-
-    const board = document.getElementById("board");
-    const pieceLayer = document.getElementById("pieceLayer");
-    const bank = document.getElementById("bank");
-    const questionModal = document.getElementById("questionModal");
-    const questionTypePill = document.getElementById("questionTypePill");
-    const questionPrompt = document.getElementById("questionPrompt");
-    const questionBody = document.getElementById("questionBody");
-    const feedback = document.getElementById("feedback");
-    const explanationBox = document.getElementById("explanationBox");
-    const pdfModal = document.getElementById("pdfModal");
-    const pdfTitle = document.getElementById("pdfTitle");
-    const pdfFrame = document.getElementById("pdfFrame");
-    const solvedCount = document.getElementById("solvedCount");
-    const missedCount = document.getElementById("missedCount");
-    const bankCount = document.getElementById("bankCount");
-
-    let selectedPiece = null;
-    let pieceId = 0;
-    let questionBank = [...sampleQuestionBank];
-    let importedPdfLibrary = [];
-    let activeQuestionPiece = null;
-    let currentQuestion = null;
-    let currentTextInput = null;
-
-    function snap(v) {
-      return Math.round(v / GRID) * GRID;
+    function uid() {
+      return Math.random().toString(36).slice(2, 10);
     }
 
-    function normalizeText(s) {
-      return String(s || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9+\- ]/g, "")
-        .replace(/\s+/g, " ");
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
     }
 
-    function shuffleArray(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
-
-    function updateStats() {
-      const qPieces = [...document.querySelectorAll('.piece.question')];
-      solvedCount.textContent = qPieces.filter(p => p.dataset.status === 'solved').length;
-      missedCount.textContent = qPieces.filter(p => p.dataset.status === 'missed').length;
-      bankCount.textContent = questionBank.length;
-    }
-
-    function selectPiece(el) {
-      document.querySelectorAll('.piece.selected').forEach(p => p.classList.remove('selected'));
-      selectedPiece = el;
-      if (el) el.classList.add('selected');
-    }
-
-    function clampToBoard(x, y) {
-      return {
-        x: Math.max(48, Math.min(board.clientWidth - 48, snap(x))),
-        y: Math.max(48, Math.min(board.clientHeight - 48, snap(y)))
-      };
-    }
-
-    function attachDrag(el) {
-      el.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        selectPiece(el);
-
-        const rect = board.getBoundingClientRect();
-        const startLeft = parseFloat(el.style.left);
-        const startTop = parseFloat(el.style.top);
-        const offsetX = e.clientX - rect.left - startLeft;
-        const offsetY = e.clientY - rect.top - startTop;
-
-        function move(ev) {
-          const x = ev.clientX - rect.left - offsetX;
-          const y = ev.clientY - rect.top - offsetY;
-          const pt = clampToBoard(x, y);
-          el.style.left = pt.x + 'px';
-          el.style.top = pt.y + 'px';
-        }
-
-        function up() {
-          window.removeEventListener('pointermove', move);
-          window.removeEventListener('pointerup', up);
-        }
-
-        window.addEventListener('pointermove', move);
-        window.addEventListener('pointerup', up);
-      });
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectPiece(el);
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
     }
 
-    function createMoleculePiece({ name, src, x = 160, y = 160 }) {
-      const pt = clampToBoard(x, y);
-      const el = document.createElement('div');
-      el.className = 'piece molecule';
-      el.dataset.id = 'piece-' + (pieceId++);
-      el.dataset.type = 'molecule';
-      el.dataset.name = name;
-      el.dataset.src = src;
-      el.style.left = pt.x + 'px';
-      el.style.top = pt.y + 'px';
+    function addPiece({ src, name = 'piece', x = 80, y = 80, width = 120, height = 120, z = null, id = uid() }) {
+      const piece = { id, src, name, x, y, width, height, z: z ?? ++zCounter };
+      pieces.push(piece);
+      renderPieces();
+      return piece;
+    }
 
+    function removePiece(id) {
+      pieces = pieces.filter(p => p.id !== id);
+      if (selectedPieceId === id) selectedPieceId = null;
+      renderPieces();
+    }
+
+    function clearBoard() {
+      pieces = [];
+      selectedPieceId = null;
+      renderPieces();
+    }
+
+    function clearLibrary() {
+      library.innerHTML = '';
+      fileInput.value = '';
+    }
+
+    function setSelectedPiece(id) {
+      selectedPieceId = id;
+      renderPieces();
+    }
+
+    function bringToFront(piece) {
+      piece.z = ++zCounter;
+    }
+
+    function renderLibraryThumb(src, name) {
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.title = name;
       const img = document.createElement('img');
       img.src = src;
       img.alt = name;
-      el.appendChild(img);
-
-      attachDrag(el);
-      pieceLayer.appendChild(el);
-      selectPiece(el);
-      return el;
+      thumb.appendChild(img);
+      library.appendChild(thumb);
     }
 
-    function pickRandomQuestion() {
-      if (!questionBank.length) return null;
-      return questionBank[Math.floor(Math.random() * questionBank.length)];
-    }
+    function renderPieces() {
+      boardSurface.innerHTML = '';
 
-    function createQuestionPiece({ x = 180, y = 180, questionId = null, status = 'unanswered' } = {}) {
-      const pt = clampToBoard(x, y);
-      const q = questionId != null ? questionBank.find(item => String(item.id) === String(questionId)) || pickRandomQuestion() : pickRandomQuestion();
-      const el = document.createElement('div');
-      el.className = 'piece question';
-      el.dataset.id = 'piece-' + (pieceId++);
-      el.dataset.type = 'question';
-      el.dataset.status = status;
-      el.dataset.questionId = q ? q.id : '';
-      el.style.left = pt.x + 'px';
-      el.style.top = pt.y + 'px';
+      pieces
+        .slice()
+        .sort((a, b) => a.z - b.z)
+        .forEach(piece => {
+          const el = document.createElement('div');
+          el.className = 'piece' + (piece.id === selectedPieceId ? ' selected' : '');
+          el.style.left = piece.x + 'px';
+          el.style.top = piece.y + 'px';
+          el.style.width = piece.width + 'px';
+          el.style.height = piece.height + 'px';
+          el.style.zIndex = piece.z;
+          el.dataset.id = piece.id;
 
-      const token = document.createElement('div');
-      token.className = 'token';
-      token.innerHTML = '<span>' + getQuestionPreviewText(q) + '</span><small>Q</small>';
-      el.appendChild(token);
+          const img = document.createElement('img');
+          img.src = piece.src;
+          img.alt = piece.name;
+          el.appendChild(img);
 
-      attachDrag(el);
-      el.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        openQuestionForPiece(el);
-      });
-
-      pieceLayer.appendChild(el);
-      selectPiece(el);
-      updateStats();
-      return el;
-    }
-
-    function createPdfPiece({ name, src, x = 220, y = 220 } = {}) {
-      const pt = clampToBoard(x, y);
-      const el = document.createElement('div');
-      el.className = 'piece pdf';
-      el.dataset.id = 'piece-' + (pieceId++);
-      el.dataset.type = 'pdf';
-      el.dataset.name = name || 'PDF';
-      el.dataset.src = src || '';
-      el.style.left = pt.x + 'px';
-      el.style.top = pt.y + 'px';
-
-      const card = document.createElement('div');
-      card.className = 'pdf-card';
-      card.textContent = 'PDF';
-
-      const label = document.createElement('div');
-      label.className = 'pdf-label';
-      label.textContent = name || 'PDF';
-      card.appendChild(label);
-      el.appendChild(card);
-
-      attachDrag(el);
-      el.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        openPdfForPiece(el);
-      });
-
-      pieceLayer.appendChild(el);
-      selectPiece(el);
-      return el;
-    }
-
-    function buildBank() {
-      bank.innerHTML = '';
-      starterPieces.forEach(piece => {
-        const btn = document.createElement('button');
-        btn.textContent = piece.name;
-        btn.addEventListener('click', () => {
-          createMoleculePiece({
-            ...piece,
-            x: 150 + Math.random() * 240,
-            y: 150 + Math.random() * 240
+          el.addEventListener('pointerdown', startDrag);
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setSelectedPiece(piece.id);
           });
-        });
-        bank.appendChild(btn);
-      });
-    }
-
-    function setFeedback(message = '', kind = '') {
-      feedback.textContent = message;
-      feedback.className = 'feedback';
-      if (kind) feedback.classList.add(kind);
-    }
-
-    function showExplanation(text) {
-      if (!text) {
-        explanationBox.hidden = true;
-        explanationBox.textContent = '';
-        return;
-      }
-      explanationBox.hidden = false;
-      explanationBox.textContent = text;
-    }
-
-    function markQuestionPiece(status) {
-      if (!activeQuestionPiece) return;
-      activeQuestionPiece.dataset.status = status;
-      updateStats();
-    }
-
-    function openQuestionForPiece(piece) {
-      activeQuestionPiece = piece;
-      currentQuestion = questionBank.find(q => String(q.id) === String(piece.dataset.questionId)) || pickRandomQuestion();
-
-      if (!currentQuestion) {
-        questionTypePill.textContent = 'No questions loaded';
-        questionPrompt.textContent = 'Load a sample bank or import a JSON question bank first.';
-        questionBody.innerHTML = '';
-        setFeedback('No question bank loaded.', 'bad');
-        showExplanation('Use the JSON file input or the sample bank button in the sidebar.');
-        questionModal.classList.add('open');
-        return;
-      }
-
-      piece.dataset.questionId = currentQuestion.id;
-      questionTypePill.textContent = `${currentQuestion.category || 'General'} • ${currentQuestion.type}`;
-      questionPrompt.textContent = currentQuestion.prompt;
-      questionBody.innerHTML = '';
-      currentTextInput = null;
-      setFeedback('');
-      showExplanation('');
-
-      if (currentQuestion.type === 'multiple-choice') {
-        const choicesWrap = document.createElement('div');
-        choicesWrap.className = 'choices';
-        currentQuestion.choices.forEach(choice => {
-          const btn = document.createElement('button');
-          btn.className = 'choice-btn';
-          btn.textContent = choice;
-          btn.addEventListener('click', () => {
-            const isCorrect = normalizeText(choice) === normalizeText(currentQuestion.answer);
-            [...choicesWrap.children].forEach(child => child.disabled = true);
-            btn.classList.add(isCorrect ? 'correct' : 'incorrect');
-            [...choicesWrap.children].forEach(child => {
-              if (normalizeText(child.textContent) === normalizeText(currentQuestion.answer)) {
-                child.classList.add('correct');
-              }
-            });
-            if (isCorrect) {
-              setFeedback('Correct ✨', 'good');
-              markQuestionPiece('solved');
-            } else {
-              setFeedback(`Not quite. Correct answer: ${currentQuestion.answer}`, 'bad');
-              markQuestionPiece('missed');
-            }
-            showExplanation(currentQuestion.explanation || '');
+          el.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            removePiece(piece.id);
           });
-          choicesWrap.appendChild(btn);
+
+          boardSurface.appendChild(el);
         });
-        questionBody.appendChild(choicesWrap);
-      } else {
-        const input = document.createElement('input');
-        input.className = 'input';
-        input.placeholder = 'Type your answer here...';
-        currentTextInput = input;
+    }
 
-        const submitBtn = document.createElement('button');
-        submitBtn.className = 'primary';
-        submitBtn.textContent = 'Check answer';
-        submitBtn.style.marginTop = '12px';
+    function startDrag(e) {
+      const el = e.currentTarget;
+      const id = el.dataset.id;
+      const piece = pieces.find(p => p.id === id);
+      if (!piece) return;
 
-        function checkTypedAnswer() {
-          const userAnswer = normalizeText(input.value);
-          const accepted = Array.isArray(currentQuestion.answer) ? currentQuestion.answer : [currentQuestion.answer];
-          const ok = accepted.some(ans => normalizeText(ans) === userAnswer);
-          if (ok) {
-            setFeedback('Correct ✨', 'good');
-            markQuestionPiece('solved');
-          } else {
-            setFeedback('Not quite yet. Try again or use hint/reveal.', 'bad');
-            markQuestionPiece('missed');
-          }
-          showExplanation(currentQuestion.explanation || '');
-        }
+      setSelectedPiece(id);
+      bringToFront(piece);
+      renderPieces();
 
-        submitBtn.addEventListener('click', checkTypedAnswer);
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') checkTypedAnswer();
-        });
+      const target = boardSurface.querySelector(`[data-id="${id}"]`);
+      if (!target) return;
+      target.classList.add('dragging');
 
-        questionBody.appendChild(input);
-        questionBody.appendChild(submitBtn);
-        setTimeout(() => input.focus(), 30);
+      const boardRect = boardSurface.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const originX = piece.x;
+      const originY = piece.y;
+
+      target.setPointerCapture(e.pointerId);
+
+      function onMove(ev) {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        piece.x = clamp(originX + dx, 0, boardSurface.clientWidth - piece.width);
+        piece.y = clamp(originY + dy, 0, boardSurface.clientHeight - piece.height);
+        target.style.left = piece.x + 'px';
+        target.style.top = piece.y + 'px';
       }
 
-      questionModal.classList.add('open');
-    }
-
-    function closeModal() {
-      questionModal.classList.remove('open');
-    }
-
-    function openPdfForPiece(piece) {
-      pdfTitle.textContent = piece.dataset.name || 'PDF';
-      pdfFrame.src = piece.dataset.src || '';
-      pdfModal.classList.add('open');
-    }
-
-    function closePdfModal() {
-      pdfModal.classList.remove('open');
-      pdfFrame.src = '';
-    }
-
-    function nextQuestion() {
-      if (!activeQuestionPiece) return;
-      const next = pickRandomQuestion();
-      if (!next) return;
-      activeQuestionPiece.dataset.questionId = next.id;
-      activeQuestionPiece.dataset.status = 'unanswered';
-      openQuestionForPiece(activeQuestionPiece);
-      updateStats();
-    }
-
-    function serializeLayout() {
-      const pieces = [...document.querySelectorAll('.piece')].map(el => ({
-        type: el.dataset.type,
-        name: el.dataset.name || '',
-        src: el.dataset.src || '',
-        x: parseFloat(el.style.left),
-        y: parseFloat(el.style.top),
-        questionId: el.dataset.questionId || '',
-        status: el.dataset.status || ''
-      }));
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        questionBank,
-        importedPdfLibrary,
-        pieces
-      }));
-    }
-
-    function loadLayout() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      questionBank = Array.isArray(data.questionBank) ? data.questionBank : [];
-      importedPdfLibrary = Array.isArray(data.importedPdfLibrary) ? data.importedPdfLibrary : [];
-      pieceLayer.innerHTML = '';
-      selectedPiece = null;
-      (data.pieces || []).forEach(p => {
-        if (p.type === 'molecule') {
-          createMoleculePiece(p);
-        } else if (p.type === 'question') {
-          createQuestionPiece(p);
-        } else if (p.type === 'pdf') {
-          createPdfPiece(p);
-        }
-      });
-      updateStats();
-    }
-
-    function duplicateSelected() {
-      if (!selectedPiece) return;
-      const x = parseFloat(selectedPiece.style.left) + GRID;
-      const y = parseFloat(selectedPiece.style.top) + GRID;
-      if (selectedPiece.dataset.type === 'molecule') {
-        createMoleculePiece({
-          name: selectedPiece.dataset.name,
-          src: selectedPiece.dataset.src,
-          x, y
-        });
-      } else if (selectedPiece.dataset.type === 'question') {
-        createQuestionPiece({
-          x, y,
-          questionId: selectedPiece.dataset.questionId,
-          status: selectedPiece.dataset.status || 'unanswered'
-        });
-      } else if (selectedPiece.dataset.type === 'pdf') {
-        createPdfPiece({
-          name: selectedPiece.dataset.name,
-          src: selectedPiece.dataset.src,
-          x, y
-        });
+      function onUp(ev) {
+        target.classList.remove('dragging');
+        target.releasePointerCapture(ev.pointerId);
+        target.removeEventListener('pointermove', onMove);
+        target.removeEventListener('pointerup', onUp);
+        target.removeEventListener('pointercancel', onUp);
       }
+
+      target.addEventListener('pointermove', onMove);
+      target.addEventListener('pointerup', onUp);
+      target.addEventListener('pointercancel', onUp);
     }
 
-    function deleteSelected() {
-      if (!selectedPiece) return;
-      selectedPiece.remove();
-      selectedPiece = null;
-      updateStats();
-    }
-
-    function clearPieces() {
-      pieceLayer.innerHTML = '';
-      selectedPiece = null;
-      updateStats();
-    }
-
-    function loadQuestionBankFromFile(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result);
-          if (!Array.isArray(parsed)) throw new Error('Question bank JSON must be an array.');
-          questionBank = parsed;
-          updateStats();
-          alert(`Loaded ${questionBank.length} questions.`);
-        } catch (err) {
-          alert('Could not load JSON question bank. Check the format.');
-          console.error(err);
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function importPdfFile(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const item = {
+    async function handleFiles(fileList) {
+      const files = Array.from(fileList).filter(file => /image\/(png|jpeg)/.test(file.type));
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        const src = await readFileAsDataURL(file);
+        renderLibraryThumb(src, file.name);
+        addPiece({
+          src,
           name: file.name,
-          src: reader.result
-        };
-        importedPdfLibrary.push(item);
-        createPdfPiece({
-          name: item.name,
-          src: item.src,
-          x: 220 + Math.random() * 220,
-          y: 220 + Math.random() * 220
+          x: 60 + index * 30,
+          y: 60 + index * 30,
+          width: 120,
+          height: 120
         });
-      };
-      reader.readAsDataURL(file);
+      }
     }
 
-    document.getElementById('spawnQuestionBtn').addEventListener('click', () => {
-      createQuestionPiece({
-        x: 180 + Math.random() * 220,
-        y: 180 + Math.random() * 220
-      });
-    });
+    function serializeState() {
+      return {
+        version: 1,
+        board: {
+          width: boardSurface.clientWidth,
+          height: boardSurface.clientHeight,
+          gridSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-size')) || 36
+        },
+        pieces
+      };
+    }
 
-    document.getElementById('shuffleQuestionBtn').addEventListener('click', () => {
-      questionBank = shuffleArray([...questionBank]);
-      updateStats();
-    });
+    function encodeStateToHash(state) {
+      const json = JSON.stringify(state);
+      return '#session=' + btoa(unescape(encodeURIComponent(json)));
+    }
 
-    document.getElementById('loadSampleBankBtn').addEventListener('click', () => {
-      questionBank = [...sampleQuestionBank];
-      updateStats();
-    });
+    function decodeStateFromHash(hash) {
+      const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+      const params = new URLSearchParams(clean);
+      const encoded = params.get('session');
+      if (!encoded) throw new Error('No session found in URL.');
+      const json = decodeURIComponent(escape(atob(encoded)));
+      return JSON.parse(json);
+    }
 
-    document.getElementById('jsonFileInput').addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (file) loadQuestionBankFromFile(file);
-    });
-
-    document.getElementById('pdfFileInput').addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (file) importPdfFile(file);
-    });
-
-    document.getElementById('addPdfBtn').addEventListener('click', () => {
-      const file = document.getElementById('pdfFileInput').files?.[0];
-      if (!file) {
-        alert('Choose a PDF file first.');
-        return;
+    function loadState(state) {
+      if (!state || !Array.isArray(state.pieces)) {
+        throw new Error('Invalid session data.');
       }
-      importPdfFile(file);
-    });
 
-    document.getElementById('saveBtn').addEventListener('click', () => {
-      serializeLayout();
-      updateStats();
-    });
+      pieces = state.pieces.map(piece => ({ ...piece }));
+      selectedPieceId = null;
+      zCounter = pieces.reduce((max, p) => Math.max(max, p.z || 1), 1);
+      library.innerHTML = '';
+      pieces.forEach(piece => renderLibraryThumb(piece.src, piece.name || 'piece'));
 
-    document.getElementById('loadBtn').addEventListener('click', loadLayout);
-    document.getElementById('duplicateBtn').addEventListener('click', duplicateSelected);
-    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
-    document.getElementById('clearBtn').addEventListener('click', clearPieces);
+      if (state.board?.gridSize) {
+        document.documentElement.style.setProperty('--grid-size', state.board.gridSize + 'px');
+        gridSizeInput.value = state.board.gridSize;
+      }
 
-    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-    document.getElementById('closePdfModalBtn').addEventListener('click', closePdfModal);
-    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
-    document.getElementById('hintBtn').addEventListener('click', () => {
-      if (!currentQuestion) return;
-      setFeedback(`Hint: ${currentQuestion.hint || 'No hint for this one.'}`);
-    });
-    document.getElementById('revealBtn').addEventListener('click', () => {
-      if (!currentQuestion) return;
-      const answerText = Array.isArray(currentQuestion.answer) ? currentQuestion.answer[0] : currentQuestion.answer;
-      setFeedback(`Answer: ${answerText}`, 'bad');
-      showExplanation(currentQuestion.explanation || '');
-      markQuestionPiece('missed');
-    });
+      renderPieces();
+    }
 
-    board.addEventListener('click', () => selectPiece(null));
-    questionModal.addEventListener('click', (e) => {
-      if (e.target === questionModal) closeModal();
-    });
-    pdfModal.addEventListener('click', (e) => {
-      if (e.target === pdfModal) closePdfModal();
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (questionModal.classList.contains('open') && e.key === 'Escape') {
-        closeModal();
+    function loadFromInputUrl() {
+      const raw = sessionUrl.value.trim();
+      if (!raw) {
+        alert('Paste a session URL or hash first.');
         return;
       }
 
-      if (!selectedPiece || questionModal.classList.contains('open')) return;
-      let x = parseFloat(selectedPiece.style.left);
-      let y = parseFloat(selectedPiece.style.top);
-
-      if (e.key === 'ArrowLeft') x -= GRID;
-      else if (e.key === 'ArrowRight') x += GRID;
-      else if (e.key === 'ArrowUp') y -= GRID;
-      else if (e.key === 'ArrowDown') y += GRID;
-      else if (e.key === 'Delete' || e.key === 'Backspace') {
-        deleteSelected();
-        return;
-      } else if (e.key === 'Enter' && selectedPiece.dataset.type === 'question') {
-        openQuestionForPiece(selectedPiece);
-        return;
-      } else if (e.key === 'Enter' && selectedPiece.dataset.type === 'pdf') {
-        openPdfForPiece(selectedPiece);
-        return;
-      } else {
-        return;
+      try {
+        const url = raw.includes('://') ? new URL(raw) : null;
+        const hash = url ? url.hash : raw;
+        const state = decodeStateFromHash(hash);
+        loadState(state);
+        history.replaceState(null, '', window.location.pathname + encodeStateToHash(state));
+      } catch (err) {
+        console.error(err);
+        alert('Could not load that session URL.');
       }
+    }
 
-      const pt = clampToBoard(x, y);
-      selectedPiece.style.left = pt.x + 'px';
-      selectedPiece.style.top = pt.y + 'px';
-      e.preventDefault();
+    fileInput.addEventListener('change', async (e) => {
+      await handleFiles(e.target.files);
     });
 
-    buildBank();
-    updateStats();
+    boardSurface.addEventListener('click', () => {
+      selectedPieceId = null;
+      renderPieces();
+    });
+
+    saveUrlBtn.addEventListener('click', () => {
+      try {
+        const state = serializeState();
+        const hash = encodeStateToHash(state);
+        const fullUrl = window.location.origin + window.location.pathname + hash;
+        history.replaceState(null, '', hash);
+        sessionUrl.value = fullUrl;
+      } catch (err) {
+        console.error(err);
+        alert('Could not generate session URL.');
+      }
+    });
+
+    copyUrlBtn.addEventListener('click', async () => {
+      if (!sessionUrl.value.trim()) {
+        alert('Generate a session URL first.');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(sessionUrl.value.trim());
+      } catch {
+        sessionUrl.select();
+        document.execCommand('copy');
+      }
+    });
+
+    loadUrlBtn.addEventListener('click', loadFromInputUrl);
+
+    clearBoardBtn.addEventListener('click', () => {
+      clearBoard();
+    });
+
+    clearLibraryBtn.addEventListener('click', () => {
+      clearLibrary();
+    });
+
+    deleteSelectedBtn.addEventListener('click', () => {
+      if (selectedPieceId) removePiece(selectedPieceId);
+    });
+
+    applyGridBtn.addEventListener('click', () => {
+      const value = parseInt(gridSizeInput.value, 10);
+      if (!Number.isFinite(value)) return;
+      document.documentElement.style.setProperty('--grid-size', clamp(value, 12, 120) + 'px');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedPieceId) {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+        removePiece(selectedPieceId);
+      }
+    });
+
+    function tryLoadFromCurrentHash() {
+      if (!window.location.hash.includes('session=')) return;
+      try {
+        const state = decodeStateFromHash(window.location.hash);
+        loadState(state);
+        sessionUrl.value = window.location.href;
+      } catch (err) {
+        console.warn('Could not restore session from URL hash.', err);
+      }
+    }
+
+    renderPieces();
+    tryLoadFromCurrentHash();
   </script>
 </body>
 </html>
