@@ -3,802 +3,166 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anatomy Game Board</title>
+<title>Game Board Sandbox</title>
 <style>
 :root {
-  --grid-size: 20px;
-  --sidebar-bg: #f3f6fb;
-  --grid-color: #c2c9d6;
-  --select-color: #2f55ff;
+  --grid-size: 36px;
 }
 
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  display: flex;
-  min-height: 100vh;
-}
+body { margin:0; font-family:sans-serif; display:flex; }
 
 #sidebar {
-  width: 360px;
-  padding: 14px 12px;
-  background: var(--sidebar-bg);
-  overflow: auto;
-  border-right: 1px solid #d5ddeb;
+  width:300px; padding:12px; background:#f3f6fb; overflow:auto;
 }
-
-#sidebar h2,
-#sidebar h3 {
-  margin: 16px 0 10px;
-}
-
-#sidebar h2:first-child,
-#sidebar h3:first-child {
-  margin-top: 0;
-}
-
-#sidebar button,
-#sidebar input,
-#sidebar textarea {
-  width: 100%;
-}
-
-#sidebar button {
-  margin-top: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-
-#sidebar input,
-#sidebar textarea {
-  margin-top: 6px;
-  padding: 8px;
-}
-
-#sidebar textarea {
-  min-height: 88px;
-  resize: vertical;
-}
-
-.style-row,
-.group {
-  margin: 8px 0;
-}
-
-.style-row label,
-.group label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 14px;
-}
-
-.helper {
-  font-size: 12px;
-  color: #555;
-  margin-top: 8px;
-  line-height: 1.35;
-}
-
-#status {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: #ffffff;
-  border: 1px solid #d7deea;
-  border-radius: 8px;
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
-#opacityValue { margin-top: 4px; }
 
 #board {
-  flex: 1;
-  position: relative;
-  overflow: auto;
+  flex:1; position:relative; overflow:auto;
   background:
-    linear-gradient(var(--grid-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    linear-gradient(#bbb 1px, transparent 1px),
+    linear-gradient(90deg, #bbb 1px, transparent 1px);
   background-size: var(--grid-size) var(--grid-size);
 }
 
 #surface {
-  width: 2200px;
-  height: 1400px;
-  position: relative;
+  width:2200px; height:1400px; position:relative;
 }
 
-.item {
-  position: absolute;
-  border: 2px solid transparent;
-  cursor: grab;
-  user-select: none;
+.piece {
+  position:absolute;
+  cursor:grab;
+  border:2px solid transparent;
 }
 
-.item.selected {
-  border-color: var(--select-color);
-}
+.piece.selected { border-color:blue; }
 
-.item img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  display: block;
+.piece img {
+  width:100%; height:100%; object-fit:contain; pointer-events:none;
 }
-
-.textbox {
-  background: #ffffff;
-  min-width: 90px;
-  min-height: 44px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.textbox-dragbar {
-  background: rgba(47, 85, 255, 0.10);
-  border-bottom: 1px solid rgba(47, 85, 255, 0.20);
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #3552c8;
-  cursor: grab;
-  user-select: none;
-}
-
-.textbox-content {
-  flex: 1;
-  padding: 8px;
-  min-height: 44px;
-  outline: none;
-  user-select: text;
-  white-space: pre-wrap;
-  overflow: auto;
-}
-
-.shape.rectangle { border-radius: 8px; }
-.shape.circle { border-radius: 999px; }
 
 .resize-handle {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  right: -7px;
-  bottom: -7px;
-  background: var(--select-color);
-  border-radius: 3px;
-  cursor: nwse-resize;
+  position:absolute;
+  width:12px; height:12px;
+  right:-6px; bottom:-6px;
+  background:blue; border-radius:3px;
+  cursor:nwse-resize;
 }
+
+textarea { width:100%; height:80px; }
+button { margin-top:6px; width:100%; }
 </style>
 </head>
 <body>
+
 <div id="sidebar">
-  <h2>Import</h2>
+  <h3>Import</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg">
-  <button type="button" id="addTextboxBtn">Add Text Box</button>
-  <button type="button" id="addRectangleBtn">Add Rectangle</button>
-  <button type="button" id="addCircleBtn">Add Circle</button>
 
-  <h3>Selected Object Style</h3>
-  <div class="style-row">
-    <label for="fillColorInput">Fill Color</label>
-    <input type="color" id="fillColorInput" value="#4f46e5">
-  </div>
-  <div class="style-row">
-    <label for="opacityInput">Opacity</label>
-    <input type="range" id="opacityInput" min="0.05" max="1" step="0.05" value="1">
-    <div id="opacityValue">1.00</div>
-  </div>
-
-  <h3>Session Link / File</h3>
-  <button type="button" id="generateJsonBtn">Generate JSON Link</button>
-  <textarea id="urlBox" placeholder="Session link appears here..."></textarea>
-  <button type="button" id="copyJsonBtn">Copy JSON Link</button>
-  <button type="button" id="loadJsonBtn">Load JSON Link</button>
-  <button type="button" id="downloadJsonBtn">Download JSON File</button>
-  <input type="file" id="jsonFileInput" accept="application/json,.json">
-
-  <h3>Load from External JSON URL</h3>
-  <input type="text" id="externalUrlInput" placeholder="https://.../session1.json">
-  <button type="button" id="loadExternalBtn">Load External JSON</button>
-
-  <h3>Save to GitHub Repository</h3>
-  <div class="group">
-    <label for="githubOwnerInput">Owner</label>
-    <input type="text" id="githubOwnerInput" placeholder="your-github-name">
-  </div>
-  <div class="group">
-    <label for="githubRepoInput">Repository</label>
-    <input type="text" id="githubRepoInput" placeholder="your-repo-name">
-  </div>
-  <div class="group">
-    <label for="githubBranchInput">Branch</label>
-    <input type="text" id="githubBranchInput" placeholder="main" value="main">
-  </div>
-  <div class="group">
-    <label for="githubPathInput">Path in repo</label>
-    <input type="text" id="githubPathInput" placeholder="data/game-board-session.json" value="data/game-board-session.json">
-  </div>
-  <div class="group">
-    <label for="githubTokenInput">Personal access token</label>
-    <input type="password" id="githubTokenInput" placeholder="GitHub token with repo contents access">
-  </div>
-  <button type="button" id="saveGitHubBtn">Save JSON to GitHub</button>
-  <button type="button" id="makeLoadLinkBtn">Make External Load Link</button>
-
-  <div id="status">Ready.</div>
-
-  <div class="helper">
-    Drag images, shapes, and text boxes around the board. Drag text boxes by the top bar. Double-click any item to delete it. External JSON and GitHub saves keep the URL much smaller for Notion embeds.
-  </div>
+  <h3>Session</h3>
+  <button onclick="saveSession()">Generate URL</button>
+  <textarea id="urlBox"></textarea>
+  <button onclick="loadSession()">Load URL</button>
 </div>
 
-<div id="board">
-  <div id="surface"></div>
-</div>
+<div id="board"><div id="surface"></div></div>
 
 <script>
 const surface = document.getElementById('surface');
-const board = document.getElementById('board');
 const fileInput = document.getElementById('fileInput');
-const jsonFileInput = document.getElementById('jsonFileInput');
-const fillColorInput = document.getElementById('fillColorInput');
-const opacityInput = document.getElementById('opacityInput');
-const opacityValue = document.getElementById('opacityValue');
-const urlBox = document.getElementById('urlBox');
-const statusBox = document.getElementById('status');
-const externalUrlInput = document.getElementById('externalUrlInput');
-
-const githubOwnerInput = document.getElementById('githubOwnerInput');
-const githubRepoInput = document.getElementById('githubRepoInput');
-const githubBranchInput = document.getElementById('githubBranchInput');
-const githubPathInput = document.getElementById('githubPathInput');
-const githubTokenInput = document.getElementById('githubTokenInput');
-
-const addTextboxBtn = document.getElementById('addTextboxBtn');
-const addRectangleBtn = document.getElementById('addRectangleBtn');
-const addCircleBtn = document.getElementById('addCircleBtn');
-const generateJsonBtn = document.getElementById('generateJsonBtn');
-const copyJsonBtn = document.getElementById('copyJsonBtn');
-const loadJsonBtn = document.getElementById('loadJsonBtn');
-const downloadJsonBtn = document.getElementById('downloadJsonBtn');
-const loadExternalBtn = document.getElementById('loadExternalBtn');
-const saveGitHubBtn = document.getElementById('saveGitHubBtn');
-const makeLoadLinkBtn = document.getElementById('makeLoadLinkBtn');
-
 let pieces = [];
 let selected = null;
 
-function setStatus(message) {
-  statusBox.textContent = message;
-}
+function uid(){ return Math.random().toString(36).slice(2); }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function safeHex(color, fallback = '#4f46e5') {
-  return /^#([0-9a-fA-F]{6})$/.test(color) ? color : fallback;
-}
-
-function utf8ToBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-function base64ToUtf8(str) {
-  return decodeURIComponent(escape(atob(str)));
-}
-
-function makePayload() {
-  return {
-    version: 1,
-    savedAt: new Date().toISOString(),
-    pieces
-  };
-}
-
-function getSelectedPiece() {
-  return pieces.find(p => p.id === selected) || null;
-}
-
-function syncStyleControls() {
-  const current = getSelectedPiece();
-  if (!current) {
-    opacityValue.textContent = Number(opacityInput.value).toFixed(2);
-    return;
+fileInput.onchange = async e => {
+  for (let f of e.target.files) {
+    const r = new FileReader();
+    r.onload = () => addPiece(r.result);
+    r.readAsDataURL(f);
   }
-  fillColorInput.value = safeHex(current.fill || (current.type === 'text' ? '#ffffff' : '#4f46e5'), current.type === 'text' ? '#ffffff' : '#4f46e5');
-  opacityInput.value = String(typeof current.opacity === 'number' ? current.opacity : 1);
-  opacityValue.textContent = Number(opacityInput.value).toFixed(2);
-}
+};
 
-function selectPiece(id) {
-  selected = id;
-  syncStyleControls();
+function addPiece(src){
+  pieces.push({ id:uid(), src, x:100, y:100, w:120, h:120 });
   render();
 }
 
-function clearSelection() {
-  selected = null;
-  syncStyleControls();
-  render();
-}
-
-function addImage(src, name = 'image') {
-  pieces.push({
-    id: uid(),
-    type: 'img',
-    name,
-    src,
-    x: 100 + pieces.length * 10,
-    y: 100 + pieces.length * 10,
-    w: 140,
-    h: 140,
-    opacity: 1,
-    fill: '#ffffff'
-  });
-  selected = pieces[pieces.length - 1].id;
-  render();
-}
-
-function addTextbox() {
-  pieces.push({
-    id: uid(),
-    type: 'text',
-    text: 'Type here...',
-    x: 140,
-    y: 140,
-    w: 180,
-    h: 80,
-    opacity: 1,
-    fill: '#ffffff'
-  });
-  selected = pieces[pieces.length - 1].id;
-  render();
-}
-
-function addShape(shape) {
-  pieces.push({
-    id: uid(),
-    type: 'shape',
-    shape,
-    x: 180,
-    y: 180,
-    w: 120,
-    h: 120,
-    opacity: 0.75,
-    fill: '#4f46e5'
-  });
-  selected = pieces[pieces.length - 1].id;
-  render();
-}
-
-function removePiece(id) {
-  pieces = pieces.filter(p => p.id !== id);
-  if (selected === id) selected = null;
-  render();
-}
-
-function attachDrag(el, piece, handle) {
-  const dragTarget = piece.type === 'text' ? (el.querySelector('.textbox-dragbar') || el) : el;
-
-  dragTarget.addEventListener('pointerdown', (e) => {
-    if (e.target === handle) return;
-    if (e.button !== 0) return;
-    selectPiece(piece.id);
-    e.preventDefault();
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startLeft = piece.x;
-    const startTop = piece.y;
-    let moved = false;
-
-    const move = (ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-      piece.x = clamp(startLeft + dx, 0, surface.clientWidth - piece.w);
-      piece.y = clamp(startTop + dy, 0, surface.clientHeight - piece.h);
-      el.style.left = piece.x + 'px';
-      el.style.top = piece.y + 'px';
-    };
-
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      if (moved) render();
-    };
-
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  });
-}
-
-function attachResize(handle, piece) {
-  handle.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    selected = piece.id;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startW = piece.w;
-    const startH = piece.h;
-
-    const move = (ev) => {
-      piece.w = Math.max(40, startW + (ev.clientX - startX));
-      piece.h = Math.max(30, startH + (ev.clientY - startY));
-      render();
-    };
-
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      render();
-    };
-
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  });
-}
-
-function render() {
+function render(){
   surface.innerHTML = '';
-
-  pieces.forEach((piece) => {
+  pieces.forEach(p => {
     const el = document.createElement('div');
-    el.className = 'item' + (piece.id === selected ? ' selected' : '');
-    el.style.left = piece.x + 'px';
-    el.style.top = piece.y + 'px';
-    el.style.width = piece.w + 'px';
-    el.style.height = piece.h + 'px';
-    el.style.opacity = typeof piece.opacity === 'number' ? piece.opacity : 1;
-    el.dataset.id = piece.id;
+    el.className = 'piece' + (p.id===selected?' selected':'');
+    el.style.left = p.x+'px';
+    el.style.top = p.y+'px';
+    el.style.width = p.w+'px';
+    el.style.height = p.h+'px';
 
-    if (piece.type === 'img') {
-      const img = document.createElement('img');
-      img.src = piece.src;
-      img.alt = piece.name || 'image';
-      el.appendChild(img);
-    } else if (piece.type === 'text') {
-      el.classList.add('textbox');
-      el.style.background = safeHex(piece.fill || '#ffffff', '#ffffff');
-
-      const dragbar = document.createElement('div');
-      dragbar.className = 'textbox-dragbar';
-      dragbar.textContent = 'Drag text box';
-      el.appendChild(dragbar);
-
-      const content = document.createElement('div');
-      content.className = 'textbox-content';
-      content.textContent = piece.text || '';
-      content.contentEditable = 'true';
-      content.spellcheck = false;
-      content.addEventListener('input', () => {
-        piece.text = content.textContent;
-      });
-      content.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selected = piece.id;
-        syncStyleControls();
-      });
-      el.appendChild(content);
-    } else if (piece.type === 'shape') {
-      el.classList.add('shape', piece.shape === 'circle' ? 'circle' : 'rectangle');
-      el.style.background = safeHex(piece.fill || '#4f46e5');
-    }
-
-    if (piece.type !== 'text') {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectPiece(piece.id);
-      });
-    }
-
-    el.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      removePiece(piece.id);
-    });
-
-    if (piece.type === 'text') {
-      const dragbarNode = el.querySelector('.textbox-dragbar');
-      const contentNode = el.querySelector('.textbox-content');
-
-      [dragbarNode, contentNode].forEach((node) => {
-        if (!node) return;
-        node.addEventListener('dblclick', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          removePiece(piece.id);
-        });
-      });
-    }
+    const img = document.createElement('img');
+    img.src = p.src;
+    el.appendChild(img);
 
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
     el.appendChild(handle);
 
-    attachDrag(el, piece, handle);
-    attachResize(handle, piece);
+    // drag
+    el.onpointerdown = e => {
+      if (e.target === handle) return;
+      selected = p.id;
+      let startX=e.clientX, startY=e.clientY;
+      let ox=p.x, oy=p.y;
+
+      function move(ev){
+        p.x = ox + (ev.clientX-startX);
+        p.y = oy + (ev.clientY-startY);
+        render();
+      }
+      function up(){ window.removeEventListener('pointermove',move); }
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',up,{once:true});
+    };
+
+    // resize
+    handle.onpointerdown = e => {
+      e.stopPropagation();
+      let startX=e.clientX, startY=e.clientY;
+      let ow=p.w, oh=p.h;
+
+      function move(ev){
+        p.w = Math.max(30, ow + (ev.clientX-startX));
+        p.h = Math.max(30, oh + (ev.clientY-startY));
+        render();
+      }
+      function up(){ window.removeEventListener('pointermove',move); }
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',up,{once:true});
+    };
+
+    el.ondblclick = ()=>{
+      pieces = pieces.filter(x=>x.id!==p.id);
+      render();
+    };
+
     surface.appendChild(el);
   });
-
-  syncStyleControls();
 }
 
-function encodeSessionData(data) {
-  return utf8ToBase64(JSON.stringify(data));
+function saveSession(){
+  const data = btoa(JSON.stringify(pieces));
+  const url = location.origin + location.pathname + '#'+data;
+  document.getElementById('urlBox').value = url;
+  location.hash = data;
 }
 
-function decodeSessionData(raw) {
-  return JSON.parse(base64ToUtf8(raw));
-}
-
-function generateJsonLink() {
-  const encoded = encodeSessionData(makePayload());
-  const url = location.origin + location.pathname + '#json=' + encoded;
-  urlBox.value = url;
-  location.hash = 'json=' + encoded;
-  setStatus('Session link generated.');
-}
-
-async function copyJsonLink() {
-  if (!urlBox.value.trim()) generateJsonLink();
-  try {
-    await navigator.clipboard.writeText(urlBox.value.trim());
-    setStatus('JSON link copied.');
-  } catch (e) {
-    urlBox.focus();
-    urlBox.select();
-    document.execCommand('copy');
-    setStatus('JSON link copied with fallback copy.');
-  }
-}
-
-function normalizeLoadedData(data) {
-  return Array.isArray(data) ? data : (Array.isArray(data.pieces) ? data.pieces : []);
-}
-
-function loadJsonLink() {
-  try {
-    const rawInput = urlBox.value.trim() || location.href;
-    let hash = '';
-
-    if (rawInput.startsWith('http://') || rawInput.startsWith('https://')) {
-      const parsed = new URL(rawInput);
-      hash = parsed.hash.startsWith('#') ? parsed.hash.slice(1) : parsed.hash;
-    } else {
-      hash = rawInput.startsWith('#') ? rawInput.slice(1) : rawInput;
-    }
-
-    if (!hash.startsWith('json=')) throw new Error('Missing json payload');
-
-    const data = decodeSessionData(hash.slice(5));
-    pieces = normalizeLoadedData(data);
-    selected = null;
+function loadSession(){
+  try{
+    const raw = document.getElementById('urlBox').value || location.hash.slice(1);
+    pieces = JSON.parse(atob(raw.replace('#','')));
     render();
-    setStatus('Loaded board from JSON link.');
-  } catch (e) {
-    alert('Invalid JSON link');
-    setStatus('Could not load JSON link.');
-  }
+  }catch(e){ alert('Invalid URL'); }
 }
 
-function downloadJsonFile() {
-  try {
-    const payload = makePayload();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = 'game-board-session.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(blobUrl);
-    setStatus('Downloaded JSON file.');
-  } catch (e) {
-    alert('Could not download JSON file');
-    setStatus('Could not download JSON file.');
-  }
-}
-
-function loadJsonFile(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      pieces = normalizeLoadedData(data);
-      if (!Array.isArray(pieces)) throw new Error('Invalid structure');
-      selected = null;
-      render();
-      setStatus('Loaded JSON file.');
-    } catch (e) {
-      alert('Invalid JSON file');
-      setStatus('Could not load JSON file.');
-    }
-  };
-  reader.readAsText(file);
-}
-
-async function loadFromExternalJson(url) {
-  const trimmed = (url || '').trim();
-  if (!trimmed) {
-    setStatus('Paste an external JSON URL first.');
-    return;
-  }
-
-  setStatus('Loading external JSON...');
-  const res = await fetch(trimmed);
-  if (!res.ok) throw new Error('Fetch failed: ' + res.status);
-  const data = await res.json();
-  pieces = normalizeLoadedData(data);
-  selected = null;
-  render();
-  externalUrlInput.value = trimmed;
-  setStatus('Loaded external JSON.');
-}
-
-async function getExistingFileSha(owner, repo, path, branch, token) {
-  const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
-  const res = await fetch(endpoint + `?ref=${encodeURIComponent(branch)}`, {
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28'
-    }
-  });
-
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error('Could not check existing file.');
-  const data = await res.json();
-  return data.sha || null;
-}
-
-async function saveToGitHub() {
-  const owner = githubOwnerInput.value.trim();
-  const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const path = githubPathInput.value.trim();
-  const token = githubTokenInput.value.trim();
-
-  if (!owner || !repo || !path || !token) {
-    setStatus('Fill in owner, repository, path, and token first.');
-    return;
-  }
-
-  setStatus('Saving JSON to GitHub...');
-
-  const payload = makePayload();
-  const content = utf8ToBase64(JSON.stringify(payload, null, 2));
-  const sha = await getExistingFileSha(owner, repo, path, branch, token);
-
-  const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
-  const body = {
-    message: `Update game board session: ${new Date().toISOString()}`,
-    content,
-    branch
-  };
-  if (sha) body.sha = sha;
-
-  const res = await fetch(endpoint, {
-    method: 'PUT',
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28'
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error('GitHub save failed: ' + errText);
-  }
-
-  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-  externalUrlInput.value = rawUrl;
-  setStatus('Saved JSON to GitHub. Raw JSON URL:\n' + rawUrl);
-}
-
-function makeExternalLoadLink() {
-  const rawUrl = externalUrlInput.value.trim();
-  if (!rawUrl) {
-    setStatus('Paste or generate an external JSON URL first.');
-    return;
-  }
-  const link = `${location.origin}${location.pathname}?load=${encodeURIComponent(rawUrl)}`;
-  urlBox.value = link;
-  setStatus('Created external-load link for Notion embed.');
-}
-
-async function tryLoadFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  const loadUrl = params.get('load');
-  if (!loadUrl) return;
-  try {
-    await loadFromExternalJson(loadUrl);
-  } catch (e) {
-    setStatus('Query load failed. ' + e.message);
-  }
-}
-
-fileInput.addEventListener('change', (e) => {
-  const files = Array.from(e.target.files || []);
-  files.forEach((file) => {
-    if (!/^image\/(png|jpeg)$/.test(file.type)) return;
-    const reader = new FileReader();
-    reader.onload = () => addImage(reader.result, file.name);
-    reader.readAsDataURL(file);
-  });
-  fileInput.value = '';
-});
-
-jsonFileInput.addEventListener('change', (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (file) loadJsonFile(file);
-  jsonFileInput.value = '';
-});
-
-addTextboxBtn.addEventListener('click', addTextbox);
-addRectangleBtn.addEventListener('click', () => addShape('rectangle'));
-addCircleBtn.addEventListener('click', () => addShape('circle'));
-generateJsonBtn.addEventListener('click', generateJsonLink);
-copyJsonBtn.addEventListener('click', copyJsonLink);
-loadJsonBtn.addEventListener('click', loadJsonLink);
-downloadJsonBtn.addEventListener('click', downloadJsonFile);
-loadExternalBtn.addEventListener('click', async () => {
-  try {
-    await loadFromExternalJson(externalUrlInput.value);
-  } catch (e) {
-    setStatus('External load failed. ' + e.message);
-  }
-});
-saveGitHubBtn.addEventListener('click', async () => {
-  try {
-    await saveToGitHub();
-  } catch (e) {
-    setStatus(e.message);
-    alert(e.message);
-  }
-});
-makeLoadLinkBtn.addEventListener('click', makeExternalLoadLink);
-
-fillColorInput.addEventListener('input', () => {
-  const current = getSelectedPiece();
-  if (!current) return;
-  current.fill = fillColorInput.value;
-  render();
-});
-
-opacityInput.addEventListener('input', () => {
-  opacityValue.textContent = Number(opacityInput.value).toFixed(2);
-  const current = getSelectedPiece();
-  if (!current) return;
-  current.opacity = Number(opacityInput.value);
-  render();
-});
-
-board.addEventListener('click', (e) => {
-  if (e.target === board || e.target === surface) clearSelection();
-});
-
-(async function boot() {
-  if (location.hash.startsWith('#json=')) {
-    try {
-      urlBox.value = location.href;
-      loadJsonLink();
-      return;
-    } catch (e) {}
-  }
-  await tryLoadFromQuery();
-  render();
-})();
+if(location.hash){ loadSession(); }
 </script>
+
 </body>
 </html>
