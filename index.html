@@ -6,13 +6,15 @@
 <title>Anatomy Board Game</title>
 <style>
 :root {
-  --grid-size: 24px;
+  --grid-size: 20px;
+  --accent: #2f55ff;
 }
 
-body { margin:0; font-family:sans-serif; display:flex; }
+* { box-sizing: border-box; }
+body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; }
 
 #sidebar {
-  width:300px; padding:12px; background:#f3f6fb; overflow:auto;
+  width:320px; padding:12px; background:#f3f6fb; overflow:auto; border-right:1px solid #d9e0ea;
 }
 
 #board {
@@ -33,22 +35,35 @@ body { margin:0; font-family:sans-serif; display:flex; }
   border:2px solid transparent;
 }
 
-.piece.selected { border-color:blue; }
+.piece.selected { border-color:var(--accent); }
 
 .piece img {
-  width:100%; height:100%; object-fit:contain; pointer-events:none;
+  width:100%; height:100%; object-fit:contain; pointer-events:none; display:block;
 }
 
 .resize-handle {
   position:absolute;
   width:12px; height:12px;
   right:-6px; bottom:-6px;
-  background:blue; border-radius:3px;
+  background:var(--accent); border-radius:3px;
   cursor:nwse-resize;
 }
 
-textarea { width:100%; height:80px; }
-button { margin-top:6px; width:100%; }
+input[type="text"],
+input[type="password"],
+textarea,
+button,
+input[type="file"] { width:100%; }
+
+textarea { min-height:90px; resize:vertical; }
+button, input, textarea { margin-top:6px; padding:8px; }
+button { cursor:pointer; }
+label { display:block; margin-top:10px; font-size:14px; }
+.small { font-size:12px; color:#566; line-height:1.35; }
+#status {
+  margin-top:8px; padding:8px; background:white; border:1px solid #d9e0ea; border-radius:8px;
+  font-size:12px; white-space:pre-wrap;
+}
 </style>
 </head>
 <body>
@@ -57,10 +72,42 @@ button { margin-top:6px; width:100%; }
   <h3>Import</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg">
 
-  <h3>Session</h3>
-  <button onclick="saveSession()">Generate URL</button>
-  <textarea id="urlBox"></textarea>
-  <button onclick="loadSession()">Load URL</button>
+  <h3>Local Session</h3>
+  <button type="button" onclick="saveSessionUrl()">Generate URL</button>
+  <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
+  <button type="button" onclick="copyUrl()">Copy URL</button>
+  <button type="button" onclick="loadSessionUrl()">Load URL</button>
+
+  <h3>GitHub Session Save</h3>
+  <label for="sessionNameInput">Session file name</label>
+  <input type="text" id="sessionNameInput" placeholder="respiratory-board-01">
+
+  <label for="githubOwnerInput">GitHub owner</label>
+  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
+
+  <label for="githubRepoInput">Repository</label>
+  <input type="text" id="githubRepoInput" placeholder="biol228-gameboard">
+
+  <label for="githubBranchInput">Branch</label>
+  <input type="text" id="githubBranchInput" value="main" placeholder="main">
+
+  <label for="githubFolderInput">Folder path in repo</label>
+  <input type="text" id="githubFolderInput" value="sessions" placeholder="sessions">
+
+  <label for="githubTokenInput">GitHub personal access token</label>
+  <input type="password" id="githubTokenInput" placeholder="token with repo contents write access">
+
+  <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
+  <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
+
+  <label for="externalUrlInput">External JSON URL</label>
+  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../sessions/respiratory-board-01.json">
+  <button type="button" onclick="loadExternalJson()">Load External JSON</button>
+
+  <textarea id="embedBox" placeholder="Smaller Notion embed link appears here..."></textarea>
+
+  <div id="status">Ready.</div>
+  <p class="small">This keeps the huge board data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-board-01.json</code>.</p>
 </div>
 
 <div id="board"><div id="surface"></div></div>
@@ -68,21 +115,51 @@ button { margin-top:6px; width:100%; }
 <script>
 const surface = document.getElementById('surface');
 const fileInput = document.getElementById('fileInput');
+const urlBox = document.getElementById('urlBox');
+const embedBox = document.getElementById('embedBox');
+const externalUrlInput = document.getElementById('externalUrlInput');
+const statusBox = document.getElementById('status');
+
+const sessionNameInput = document.getElementById('sessionNameInput');
+const githubOwnerInput = document.getElementById('githubOwnerInput');
+const githubRepoInput = document.getElementById('githubRepoInput');
+const githubBranchInput = document.getElementById('githubBranchInput');
+const githubFolderInput = document.getElementById('githubFolderInput');
+const githubTokenInput = document.getElementById('githubTokenInput');
+
 let pieces = [];
 let selected = null;
 
 function uid(){ return Math.random().toString(36).slice(2); }
+function setStatus(msg){ statusBox.textContent = msg; }
+function clamp(v, min, max){ return Math.min(max, Math.max(min, v)); }
+function safeName(name){
+  return (name || 'board-session')
+    .trim()
+    .toLowerCase()
+    .replace(/\.json$/i, '')
+    .replace(/[^a-z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'board-session';
+}
+function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function base64ToUtf8(str){ return decodeURIComponent(escape(atob(str))); }
+function getPayload(){ return { version: 1, savedAt: new Date().toISOString(), pieces }; }
+function getCurrentSiteBase(){ return window.location.origin + window.location.pathname; }
 
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
+    if (!/^image\/(png|jpeg)$/.test(f.type)) continue;
     const r = new FileReader();
-    r.onload = () => addPiece(r.result);
+    r.onload = () => addPiece(r.result, f.name);
     r.readAsDataURL(f);
   }
+  fileInput.value = '';
 };
 
-function addPiece(src){
-  pieces.push({ id:uid(), src, x:100, y:100, w:120, h:120 });
+function addPiece(src, name = 'image'){
+  pieces.push({ id:uid(), name, src, x:100 + pieces.length * 10, y:100 + pieces.length * 10, w:120, h:120 });
+  selected = pieces[pieces.length - 1].id;
   render();
 }
 
@@ -95,73 +172,220 @@ function render(){
     el.style.top = p.y+'px';
     el.style.width = p.w+'px';
     el.style.height = p.h+'px';
+    el.dataset.id = p.id;
 
     const img = document.createElement('img');
     img.src = p.src;
+    img.alt = p.name || 'piece';
     el.appendChild(img);
 
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
     el.appendChild(handle);
 
-    // drag
-    el.onpointerdown = e => {
+    el.addEventListener('pointerdown', e => {
       if (e.target === handle) return;
       selected = p.id;
-      let startX=e.clientX, startY=e.clientY;
-      let ox=p.x, oy=p.y;
+      const startX = e.clientX, startY = e.clientY;
+      const ox = p.x, oy = p.y;
 
       function move(ev){
-        p.x = ox + (ev.clientX-startX);
-        p.y = oy + (ev.clientY-startY);
+        p.x = clamp(ox + (ev.clientX - startX), 0, surface.clientWidth - p.w);
+        p.y = clamp(oy + (ev.clientY - startY), 0, surface.clientHeight - p.h);
+        el.style.left = p.x + 'px';
+        el.style.top = p.y + 'px';
+      }
+      function up(){
+        window.removeEventListener('pointermove', move);
         render();
       }
-      function up(){ window.removeEventListener('pointermove',move); }
-      window.addEventListener('pointermove',move);
-      window.addEventListener('pointerup',up,{once:true});
-    };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up, { once:true });
+    });
 
-    // resize
-    handle.onpointerdown = e => {
+    handle.addEventListener('pointerdown', e => {
       e.stopPropagation();
-      let startX=e.clientX, startY=e.clientY;
-      let ow=p.w, oh=p.h;
+      selected = p.id;
+      const startX = e.clientX, startY = e.clientY;
+      const ow = p.w, oh = p.h;
 
       function move(ev){
-        p.w = Math.max(30, ow + (ev.clientX-startX));
-        p.h = Math.max(30, oh + (ev.clientY-startY));
+        p.w = Math.max(30, ow + (ev.clientX - startX));
+        p.h = Math.max(30, oh + (ev.clientY - startY));
         render();
       }
-      function up(){ window.removeEventListener('pointermove',move); }
-      window.addEventListener('pointermove',move);
-      window.addEventListener('pointerup',up,{once:true});
-    };
+      function up(){ window.removeEventListener('pointermove', move); render(); }
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up, { once:true });
+    });
 
-    el.ondblclick = ()=>{
-      pieces = pieces.filter(x=>x.id!==p.id);
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      pieces = pieces.filter(x => x.id !== p.id);
+      if (selected === p.id) selected = null;
       render();
-    };
+    });
 
     surface.appendChild(el);
   });
 }
 
-function saveSession(){
-  const data = btoa(JSON.stringify(pieces));
-  const url = location.origin + location.pathname + '#'+data;
-  document.getElementById('urlBox').value = url;
-  location.hash = data;
+function saveSessionUrl(){
+  const data = utf8ToBase64(JSON.stringify(getPayload()));
+  const url = getCurrentSiteBase() + '#json=' + data;
+  urlBox.value = url;
+  location.hash = 'json=' + data;
+  setStatus('Local session URL generated.');
 }
 
-function loadSession(){
-  try{
-    const raw = document.getElementById('urlBox').value || location.hash.slice(1);
-    pieces = JSON.parse(atob(raw.replace('#','')));
+async function copyUrl(){
+  if (!urlBox.value.trim()) saveSessionUrl();
+  try {
+    await navigator.clipboard.writeText(urlBox.value.trim());
+    setStatus('URL copied.');
+  } catch {
+    urlBox.select();
+    document.execCommand('copy');
+    setStatus('URL copied with fallback copy.');
+  }
+}
+
+function loadSessionUrl(){
+  try {
+    const raw = urlBox.value.trim() || location.hash;
+    const hash = raw.includes('://') ? new URL(raw).hash : raw;
+    const cleaned = hash.replace(/^#json=/, '').replace(/^#/, '');
+    const data = JSON.parse(base64ToUtf8(cleaned));
+    pieces = Array.isArray(data) ? data : (data.pieces || []);
+    selected = null;
     render();
-  }catch(e){ alert('Invalid URL'); }
+    setStatus('Loaded local session URL.');
+  } catch (e) {
+    alert('Invalid URL');
+    setStatus('Could not load local session URL.');
+  }
 }
 
-if(location.hash){ loadSession(); }
+async function loadExternalJson(url = externalUrlInput.value){
+  const trimmed = (url || '').trim();
+  if (!trimmed) {
+    setStatus('Paste an external JSON URL first.');
+    return;
+  }
+  try {
+    setStatus('Loading external JSON...');
+    const res = await fetch(trimmed);
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const data = await res.json();
+    pieces = Array.isArray(data) ? data : (data.pieces || []);
+    selected = null;
+    externalUrlInput.value = trimmed;
+    render();
+    setStatus('Loaded external JSON.');
+  } catch (e) {
+    alert('Could not load external JSON.');
+    setStatus('Could not load external JSON. ' + e.message);
+  }
+}
+
+async function getExistingSha(owner, repo, branch, path, token){
+  const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const res = await fetch(endpoint + `?ref=${encodeURIComponent(branch)}`, {
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Could not check existing file.');
+  const data = await res.json();
+  return data.sha || null;
+}
+
+async function saveSessionToGitHub(){
+  const owner = githubOwnerInput.value.trim();
+  const repo = githubRepoInput.value.trim();
+  const branch = githubBranchInput.value.trim() || 'main';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const token = githubTokenInput.value.trim();
+  const sessionName = safeName(sessionNameInput.value);
+  const path = `${folder}/${sessionName}.json`;
+
+  if (!owner || !repo || !token) {
+    setStatus('Fill in GitHub owner, repository, and token first.');
+    return;
+  }
+
+  try {
+    setStatus('Saving session to GitHub...');
+    const sha = await getExistingSha(owner, repo, branch, path, token);
+    const payload = utf8ToBase64(JSON.stringify(getPayload(), null, 2));
+    const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+
+    const body = {
+      message: `Save board session ${sessionName}`,
+      content: payload,
+      branch
+    };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err);
+    }
+
+    const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+    externalUrlInput.value = rawUrl;
+    setStatus(`Saved session to GitHub.\nRaw JSON URL:\n${rawUrl}`);
+  } catch (e) {
+    alert('GitHub save failed. Check repo name, branch, path, and token access.');
+    setStatus('GitHub save failed.\n' + e.message);
+  }
+}
+
+function makeEmbedLink(){
+  const rawUrl = externalUrlInput.value.trim();
+  if (!rawUrl) {
+    setStatus('Save to GitHub first, or paste an external JSON URL.');
+    return;
+  }
+  const embedUrl = `${getCurrentSiteBase()}?load=${encodeURIComponent(rawUrl)}`;
+  embedBox.value = embedUrl;
+  setStatus('Smaller Notion embed link generated.');
+}
+
+async function loadFromQueryParam(){
+  const params = new URLSearchParams(window.location.search);
+  const loadUrl = params.get('load');
+  if (loadUrl) {
+    externalUrlInput.value = loadUrl;
+    await loadExternalJson(loadUrl);
+    return true;
+  }
+  return false;
+}
+
+(async function boot(){
+  if (location.hash.startsWith('#json=')) {
+    loadSessionUrl();
+  } else {
+    await loadFromQueryParam();
+  }
+  render();
+})();
 </script>
 
 </body>
