@@ -5,48 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anatomy Game Board</title>
 <style>
-:root {
-  --grid-size: 36px;
-}
-
+:root { --grid-size: 24px; }
 body { margin:0; font-family:sans-serif; display:flex; }
-
-#sidebar {
-  width:300px; padding:12px; background:#f3f6fb; overflow:auto;
-}
-
-#board {
-  flex:1; position:relative; overflow:auto;
+#sidebar { width:300px; padding:12px; background:#f3f6fb; overflow:auto; }
+#board { flex:1; position:relative; overflow:auto;
   background:
     linear-gradient(#bbb 1px, transparent 1px),
     linear-gradient(90deg, #bbb 1px, transparent 1px);
   background-size: var(--grid-size) var(--grid-size);
 }
+#surface { width:2200px; height:1400px; position:relative; }
 
-#surface {
-  width:2200px; height:1400px; position:relative;
+.piece, .textbox {
+  position:absolute; cursor:grab; border:2px solid transparent;
+}
+.piece.selected, .textbox.selected { border-color:blue; }
+
+.piece img { width:100%; height:100%; object-fit:contain; pointer-events:none; }
+
+.textbox {
+  min-width:80px; min-height:40px;
+  background:white; padding:6px;
 }
 
-.piece {
-  position:absolute;
-  cursor:grab;
-  border:2px solid transparent;
-}
-
-.piece.selected { border-color:blue; }
-
-.piece img {
-  width:100%; height:100%; object-fit:contain; pointer-events:none;
-}
+.textbox[contenteditable] { outline:none; }
 
 .resize-handle {
-  position:absolute;
-  width:12px; height:12px;
-  right:-6px; bottom:-6px;
-  background:blue; border-radius:3px;
+  position:absolute; width:12px; height:12px;
+  right:-6px; bottom:-6px; background:blue;
   cursor:nwse-resize;
 }
-
 textarea { width:100%; height:80px; }
 button { margin-top:6px; width:100%; }
 </style>
@@ -54,8 +42,10 @@ button { margin-top:6px; width:100%; }
 <body>
 
 <div id="sidebar">
-  <h3>Import</h3>
+  <h3>Import Game Piece</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg">
+
+  <button onclick="addTextbox()">➕ Add Text Box</button>
 
   <h3>Session</h3>
   <button onclick="saveSession()">Generate URL</button>
@@ -76,13 +66,18 @@ function uid(){ return Math.random().toString(36).slice(2); }
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
     const r = new FileReader();
-    r.onload = () => addPiece(r.result);
+    r.onload = () => addImage(r.result);
     r.readAsDataURL(f);
   }
 };
 
-function addPiece(src){
-  pieces.push({ id:uid(), src, x:100, y:100, w:120, h:120 });
+function addImage(src){
+  pieces.push({ id:uid(), type:'img', src, x:100, y:100, w:120, h:120 });
+  render();
+}
+
+function addTextbox(){
+  pieces.push({ id:uid(), type:'text', text:'Type here...', x:150, y:150, w:150, h:60 });
   render();
 }
 
@@ -90,21 +85,26 @@ function render(){
   surface.innerHTML = '';
   pieces.forEach(p => {
     const el = document.createElement('div');
-    el.className = 'piece' + (p.id===selected?' selected':'');
+    el.className = (p.type==='img'?'piece':'textbox') + (p.id===selected?' selected':'');
     el.style.left = p.x+'px';
     el.style.top = p.y+'px';
     el.style.width = p.w+'px';
     el.style.height = p.h+'px';
 
-    const img = document.createElement('img');
-    img.src = p.src;
-    el.appendChild(img);
+    if(p.type==='img'){
+      const img = document.createElement('img');
+      img.src = p.src;
+      el.appendChild(img);
+    } else {
+      el.contentEditable = true;
+      el.innerText = p.text;
+      el.oninput = () => p.text = el.innerText;
+    }
 
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
     el.appendChild(handle);
 
-    // drag
     el.onpointerdown = e => {
       if (e.target === handle) return;
       selected = p.id;
@@ -121,14 +121,13 @@ function render(){
       window.addEventListener('pointerup',up,{once:true});
     };
 
-    // resize
     handle.onpointerdown = e => {
       e.stopPropagation();
       let startX=e.clientX, startY=e.clientY;
       let ow=p.w, oh=p.h;
 
       function move(ev){
-        p.w = Math.max(30, ow + (ev.clientX-startX));
+        p.w = Math.max(40, ow + (ev.clientX-startX));
         p.h = Math.max(30, oh + (ev.clientY-startY));
         render();
       }
@@ -162,6 +161,7 @@ function loadSession(){
 }
 
 if(location.hash){ loadSession(); }
+render();
 </script>
 
 </body>
