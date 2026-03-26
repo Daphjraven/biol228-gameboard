@@ -6,7 +6,7 @@
 <title>Anatomy Board Game</title>
 <style>
 :root {
-  --grid-size: 20px;
+  --grid-size: 24px;
   --accent: #2f55ff;
 }
 
@@ -14,7 +14,7 @@
 body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; }
 
 #sidebar {
-  width:320px; padding:12px; background:#f3f6fb; overflow:auto; border-right:1px solid #d9e0ea;
+  width:340px; padding:12px; background:#f3f6fb; overflow:auto; border-right:1px solid #d9e0ea;
 }
 
 #board {
@@ -50,13 +50,13 @@ body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; }
 }
 
 input[type="text"],
-input[type="password"],
 textarea,
 button,
-input[type="file"] { width:100%; }
+input[type="file"],
+select { width:100%; }
 
 textarea { min-height:90px; resize:vertical; }
-button, input, textarea { margin-top:6px; padding:8px; }
+button, input, textarea, select { margin-top:6px; padding:8px; }
 button { cursor:pointer; }
 label { display:block; margin-top:10px; font-size:14px; }
 .small { font-size:12px; color:#566; line-height:1.35; }
@@ -64,6 +64,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   margin-top:8px; padding:8px; background:white; border:1px solid #d9e0ea; border-radius:8px;
   font-size:12px; white-space:pre-wrap;
 }
+.row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 </style>
 </head>
 <body>
@@ -72,42 +73,46 @@ label { display:block; margin-top:10px; font-size:14px; }
   <h3>Import</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg">
 
-  <h3>Local Session</h3>
-  <button type="button" onclick="saveSessionUrl()">Generate URL</button>
-  <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
-  <button type="button" onclick="copyUrl()">Copy URL</button>
-  <button type="button" onclick="loadSessionUrl()">Load URL</button>
+  <h3>Saved Boards</h3>
+  <label for="savedBoardsSelect">Load from dropdown</label>
+  <select id="savedBoardsSelect">
+    <option value="">Choose a saved board...</option>
+  </select>
+  <button type="button" id="refreshBoardsBtn">Refresh Saved Boards</button>
+  <button type="button" id="loadSelectedBoardBtn">Load Selected Board</button>
 
-  <h3>GitHub Session Save</h3>
-  <label for="sessionNameInput">Session file name</label>
+  <h3>Local Session</h3>
+  <button type="button" id="saveUrlBtn">Generate URL</button>
+  <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
+  <div class="row">
+    <button type="button" id="copyUrlBtn">Copy URL</button>
+    <button type="button" id="loadUrlBtn">Load URL</button>
+  </div>
+
+  <h3>Tokenless Cloud Save</h3>
+  <label for="sessionNameInput">Session name</label>
   <input type="text" id="sessionNameInput" placeholder="respiratory-board-01">
 
-  <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
+  <label for="apiBaseInput">Serverless API base</label>
+  <input type="text" id="apiBaseInput" placeholder="https://your-vercel-app.vercel.app/api" value="/api">
 
-  <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" placeholder="biol228-gameboard">
-
-  <label for="githubBranchInput">Branch</label>
-  <input type="text" id="githubBranchInput" value="main" placeholder="main">
-
-  <label for="githubFolderInput">Folder path in repo</label>
-  <input type="text" id="githubFolderInput" value="sessions" placeholder="sessions">
-
-  <label for="githubTokenInput">GitHub personal access token</label>
-  <input type="password" id="githubTokenInput" placeholder="token with repo contents write access">
-
-  <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
-  <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
+  <div class="row">
+    <button type="button" id="saveCloudBtn">Save Board</button>
+    <button type="button" id="makeEmbedBtn">Make Embed Link</button>
+  </div>
 
   <label for="externalUrlInput">External JSON URL</label>
-  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../sessions/respiratory-board-01.json">
-  <button type="button" onclick="loadExternalJson()">Load External JSON</button>
+  <input type="text" id="externalUrlInput" placeholder="https://.../sessions/respiratory-board-01.json">
+  <button type="button" id="loadExternalBtn">Load External JSON</button>
 
   <textarea id="embedBox" placeholder="Smaller Notion embed link appears here..."></textarea>
 
+  <h3>Auto-Save</h3>
+  <button type="button" id="restoreAutosaveBtn">Restore Auto-Save</button>
+  <button type="button" id="clearAutosaveBtn">Clear Auto-Save</button>
+
   <div id="status">Ready.</div>
-  <p class="small">This keeps the huge board data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-board-01.json</code>.</p>
+  <p class="small">This version supports three storage paths: a local URL, browser auto-save, and tokenless cloud save through a tiny serverless API. The dropdown loads boards from your serverless endpoint or from a public <code>sessions/index.json</code> file.</p>
 </div>
 
 <div id="board"><div id="surface"></div></div>
@@ -119,16 +124,25 @@ const urlBox = document.getElementById('urlBox');
 const embedBox = document.getElementById('embedBox');
 const externalUrlInput = document.getElementById('externalUrlInput');
 const statusBox = document.getElementById('status');
-
 const sessionNameInput = document.getElementById('sessionNameInput');
-const githubOwnerInput = document.getElementById('githubOwnerInput');
-const githubRepoInput = document.getElementById('githubRepoInput');
-const githubBranchInput = document.getElementById('githubBranchInput');
-const githubFolderInput = document.getElementById('githubFolderInput');
-const githubTokenInput = document.getElementById('githubTokenInput');
+const apiBaseInput = document.getElementById('apiBaseInput');
+const savedBoardsSelect = document.getElementById('savedBoardsSelect');
+
+const saveUrlBtn = document.getElementById('saveUrlBtn');
+const copyUrlBtn = document.getElementById('copyUrlBtn');
+const loadUrlBtn = document.getElementById('loadUrlBtn');
+const loadExternalBtn = document.getElementById('loadExternalBtn');
+const saveCloudBtn = document.getElementById('saveCloudBtn');
+const makeEmbedBtn = document.getElementById('makeEmbedBtn');
+const refreshBoardsBtn = document.getElementById('refreshBoardsBtn');
+const loadSelectedBoardBtn = document.getElementById('loadSelectedBoardBtn');
+const restoreAutosaveBtn = document.getElementById('restoreAutosaveBtn');
+const clearAutosaveBtn = document.getElementById('clearAutosaveBtn');
 
 let pieces = [];
 let selected = null;
+let autosaveTimer = null;
+const AUTOSAVE_KEY = 'anatomy-board-autosave-v1';
 
 function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
@@ -146,6 +160,41 @@ function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function base64ToUtf8(str){ return decodeURIComponent(escape(atob(str))); }
 function getPayload(){ return { version: 1, savedAt: new Date().toISOString(), pieces }; }
 function getCurrentSiteBase(){ return window.location.origin + window.location.pathname; }
+function getApiBase(){ return (apiBaseInput.value || '/api').trim().replace(/\/$/, ''); }
+
+function scheduleAutosave() {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getPayload()));
+      setStatus('Auto-saved locally.');
+    } catch (e) {
+      setStatus('Auto-save failed. Local storage may be full.');
+    }
+  }, 250);
+}
+
+function restoreAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) {
+      setStatus('No auto-save found.');
+      return;
+    }
+    const data = JSON.parse(raw);
+    pieces = Array.isArray(data) ? data : (data.pieces || []);
+    selected = null;
+    render();
+    setStatus('Restored auto-save.');
+  } catch (e) {
+    setStatus('Could not restore auto-save.');
+  }
+}
+
+function clearAutosave() {
+  localStorage.removeItem(AUTOSAVE_KEY);
+  setStatus('Cleared auto-save.');
+}
 
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
@@ -229,6 +278,8 @@ function render(){
 
     surface.appendChild(el);
   });
+
+  scheduleAutosave();
 }
 
 function saveSessionUrl(){
@@ -289,82 +340,96 @@ async function loadExternalJson(url = externalUrlInput.value){
   }
 }
 
-async function getExistingSha(owner, repo, branch, path, token){
-  const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
-  const res = await fetch(endpoint + `?ref=${encodeURIComponent(branch)}`, {
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28'
-    }
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error('Could not check existing file.');
-  const data = await res.json();
-  return data.sha || null;
-}
-
-async function saveSessionToGitHub(){
-  const owner = githubOwnerInput.value.trim();
-  const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
-  const token = githubTokenInput.value.trim();
+async function saveSessionCloud(){
   const sessionName = safeName(sessionNameInput.value);
-  const path = `${folder}/${sessionName}.json`;
-
-  if (!owner || !repo || !token) {
-    setStatus('Fill in GitHub owner, repository, and token first.');
+  const apiBase = getApiBase();
+  if (!sessionName) {
+    setStatus('Enter a session name first.');
     return;
   }
 
   try {
-    setStatus('Saving session to GitHub...');
-    const sha = await getExistingSha(owner, repo, branch, path, token);
-    const payload = utf8ToBase64(JSON.stringify(getPayload(), null, 2));
-    const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
-
-    const body = {
-      message: `Save board session ${sessionName}`,
-      content: payload,
-      branch
-    };
-    if (sha) body.sha = sha;
-
-    const res = await fetch(endpoint, {
-      method: 'PUT',
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': '2022-11-28'
-      },
-      body: JSON.stringify(body)
+    setStatus('Saving board through tokenless API...');
+    const res = await fetch(`${apiBase}/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionName, payload: getPayload() })
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err);
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
 
-    const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-    externalUrlInput.value = rawUrl;
-    setStatus(`Saved session to GitHub.\nRaw JSON URL:\n${rawUrl}`);
+    externalUrlInput.value = data.rawUrl || data.url || '';
+    if (data.savedBoards && Array.isArray(data.savedBoards)) {
+      populateBoardsDropdown(data.savedBoards);
+    }
+    setStatus('Saved board through tokenless API.');
   } catch (e) {
-    alert('GitHub save failed. Check repo name, branch, path, and token access.');
-    setStatus('GitHub save failed.\n' + e.message);
+    alert('Tokenless save is not ready yet. You need a tiny serverless endpoint first.');
+    setStatus('Tokenless save failed. ' + e.message + '\nThis front-end is ready, but you still need a backend endpoint like /api/session.');
   }
 }
 
 function makeEmbedLink(){
   const rawUrl = externalUrlInput.value.trim();
   if (!rawUrl) {
-    setStatus('Save to GitHub first, or paste an external JSON URL.');
+    setStatus('Save to cloud first, or paste an external JSON URL.');
     return;
   }
   const embedUrl = `${getCurrentSiteBase()}?load=${encodeURIComponent(rawUrl)}`;
   embedBox.value = embedUrl;
   setStatus('Smaller Notion embed link generated.');
+}
+
+function populateBoardsDropdown(items) {
+  savedBoardsSelect.innerHTML = '<option value="">Choose a saved board...</option>';
+  items.forEach(item => {
+    const option = document.createElement('option');
+    if (typeof item === 'string') {
+      option.value = item;
+      option.textContent = item.split('/').pop().replace(/\.json$/i, '');
+    } else {
+      option.value = item.url;
+      option.textContent = item.label || item.name || item.url;
+    }
+    savedBoardsSelect.appendChild(option);
+  });
+}
+
+async function refreshSavedBoards() {
+  const apiBase = getApiBase();
+  setStatus('Refreshing saved boards...');
+
+  try {
+    const apiRes = await fetch(`${apiBase}/sessions`);
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      const items = Array.isArray(data) ? data : (data.items || data.savedBoards || []);
+      populateBoardsDropdown(items);
+      setStatus('Loaded saved boards from tokenless API.');
+      return;
+    }
+  } catch (e) {}
+
+  try {
+    const fallbackRes = await fetch('sessions/index.json');
+    if (!fallbackRes.ok) throw new Error('No fallback index file');
+    const data = await fallbackRes.json();
+    const items = Array.isArray(data) ? data : (data.items || []);
+    populateBoardsDropdown(items);
+    setStatus('Loaded saved boards from sessions/index.json.');
+  } catch (e) {
+    setStatus('Could not refresh saved boards yet. Add an API endpoint or a sessions/index.json file.');
+  }
+}
+
+async function loadSelectedBoard() {
+  const selectedUrl = savedBoardsSelect.value;
+  if (!selectedUrl) {
+    setStatus('Choose a board from the dropdown first.');
+    return;
+  }
+  await loadExternalJson(selectedUrl);
 }
 
 async function loadFromQueryParam(){
@@ -378,15 +443,33 @@ async function loadFromQueryParam(){
   return false;
 }
 
+saveUrlBtn.addEventListener('click', saveSessionUrl);
+copyUrlBtn.addEventListener('click', copyUrl);
+loadUrlBtn.addEventListener('click', loadSessionUrl);
+loadExternalBtn.addEventListener('click', () => loadExternalJson());
+saveCloudBtn.addEventListener('click', saveSessionCloud);
+makeEmbedBtn.addEventListener('click', makeEmbedLink);
+refreshBoardsBtn.addEventListener('click', refreshSavedBoards);
+loadSelectedBoardBtn.addEventListener('click', loadSelectedBoard);
+restoreAutosaveBtn.addEventListener('click', restoreAutosave);
+clearAutosaveBtn.addEventListener('click', clearAutosave);
+
 (async function boot(){
-  if (location.hash.startsWith('#json=')) {
+  const loadedFromQuery = await loadFromQueryParam();
+  if (!loadedFromQuery && location.hash.startsWith('#json=')) {
     loadSessionUrl();
-  } else {
-    await loadFromQueryParam();
+  } else if (!loadedFromQuery) {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        pieces = Array.isArray(data) ? data : (data.pieces || []);
+      } catch (e) {}
+    }
+    render();
   }
-  render();
+  refreshSavedBoards();
 })();
 </script>
-
 </body>
 </html>
