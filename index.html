@@ -87,7 +87,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" value="biol228-gameboard" placeholder="biol228-gameboard">
+  <input type="text" id="githubRepoInput" value= "biol228-gameboard" placeholder="biol228-gameboard">
 
   <label for="githubBranchInput">Branch</label>
   <input type="text" id="githubBranchInput" value="main" placeholder="main">
@@ -375,69 +375,17 @@ function populateGitHubBoards(items) {
   });
 }
 
-async function refreshGitHubBoards() {
-  const owner = (githubOwnerInput?.value || 'Daphjraven').trim();
-  const repo = (githubRepoInput?.value || 'biol228-gameboard').trim();
-  const branch = (githubBranchInput?.value || 'main').trim() || 'main';
-  const folder = (githubFolderInput?.value || 'data').trim().replace(/^\/+|\/+$/g, '') || 'data';
-  const token = (githubTokenInput?.value || '').trim();
+async function refreshGitHubBoards(){
+  const owner = githubOwnerInput.value.trim();
+  const repo = githubRepoInput.value.trim();
+  const branch = githubBranchInput.value.trim() || 'main';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const token = githubTokenInput.value.trim();
 
   if (!owner || !repo) {
     setStatus('Fill in GitHub owner and repository first.');
     return;
   }
-
-  githubBoardsSelect.innerHTML = '<option value=\"\">Loading...</option>';
-
-  try {
-    setStatus('Loading saved boards from GitHub...');
-
-    const endpoint =
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${folder.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`;
-
-    const headers = {
-      'Accept': 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28'
-    };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await fetch(endpoint, { headers });
-    if (!res.ok) throw new Error(`GitHub API fetch failed: ${res.status}`);
-
-    const data = await res.json();
-
-    const boards = (Array.isArray(data) ? data : [])
-      .filter(item => item.type === 'file' && /\.json$/i.test(item.name))
-      .map(item => ({
-        label: item.name.replace(/\.json$/i, ''),
-        url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${folder}/${item.name}`
-      }));
-
-    if (!boards.length) {
-      githubBoardsSelect.innerHTML = '<option value=\"\">Choose a saved board...</option>';
-      setStatus('No JSON boards found in that folder.');
-      return;
-    }
-
-    githubBoardsSelect.innerHTML = '<option value=\"\">Choose a saved board...</option>';
-    boards.forEach(board => {
-      const option = document.createElement('option');
-      option.value = board.url;
-      option.textContent = board.label;
-      githubBoardsSelect.appendChild(option);
-    });
-
-    if (boards.length === 1) {
-      githubBoardsSelect.value = boards[0].url;
-    }
-
-    setStatus(`Loaded ${boards.length} saved board(s) from GitHub.`);
-  } catch (e) {
-    githubBoardsSelect.innerHTML = '<option value=\"\">Choose a saved board...</option>';
-    setStatus('Could not load saved boards from GitHub. ' + e.message);
-    console.error(e);
-  }
-}
 
   try {
     setStatus('Loading saved boards from GitHub...');
@@ -467,7 +415,7 @@ async function refreshGitHubBoards() {
   }
 }
 
-async function loadSelectedGitHubBoard() {
+async function loadSelectedGitHubBoard(){
   const selectedUrl = githubBoardsSelect.value;
   if (!selectedUrl) {
     setStatus('Choose a saved GitHub board first.');
