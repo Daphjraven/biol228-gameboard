@@ -561,7 +561,8 @@ const rawSvg = mol.get_svg();
 const transparentSvg = sanitizeSvgForTransparency(rawSvg);
 const svgSize = getSvgCanvasSize(transparentSvg);
 const encoded = svgToDataUrl(transparentSvg);
-
+console.log(rawSvg);
+    
 pieces.push({
   id: uid(),
   type: 'media',
