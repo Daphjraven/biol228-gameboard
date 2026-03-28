@@ -209,8 +209,6 @@ label { display:block; margin-top:10px; font-size:14px; }
 <div id="sidebar">
   <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
-  <textarea id="svgContentInput" placeholder="Paste raw SVG content here if you want to import SVG markup directly..."></textarea>
-  <button type="button" onclick="addSvgContent()">Add SVG Content</button>
   <button type="button" onclick="addTextBox()">Add Text Box</button>
 
   <h3>ChemRender</h3>
@@ -285,7 +283,6 @@ const embedBox = document.getElementById('embedBox');
 const externalUrlInput = document.getElementById('externalUrlInput');
 const statusBox = document.getElementById('status');
 const smilesInput = document.getElementById('smilesInput');
-const svgContentInput = document.getElementById('svgContentInput');
 const mediaContextMenu = document.getElementById('mediaContextMenu');
 const saveMediaButton = document.getElementById('saveMediaButton');
 
@@ -524,21 +521,6 @@ function addPiece(src, name = 'image'){
   pieces.push({ id:uid(), type:'media', name, src, x:100 + pieces.length * 10, y:100 + pieces.length * 10, w:120, h:120 });
   selected = pieces[pieces.length - 1].id;
   render();
-}
-
-function addSvgContent(){
-  const rawSvg = (svgContentInput.value || '').trim();
-  if (!rawSvg) {
-    setStatus('Paste SVG content first.');
-    return;
-  }
-  if (!/<svg[\s>]/i.test(rawSvg)) {
-    setStatus('That does not look like valid SVG content.');
-    return;
-  }
-  addPiece(svgToDataUrl(rawSvg), 'pasted-svg');
-  svgContentInput.value = '';
-  setStatus('SVG content added to canvas.');
 }
 
 function addTextBox(){
