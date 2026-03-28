@@ -341,6 +341,28 @@ function addTextBox(){
   render();
 }
 
+function makeSvgTransparent(svgText) {
+  return svgText
+    // Remove white background rectangles
+    .replace(/<rect[^>]*fill\s*=\s*["'](?:white|#fff(?:fff)?|rgb\(255,\s*255,\s*255\))["'][^>]*\/?>/gi, '')
+    
+    // Clean existing background styles
+    .replace(/background\s*:\s*[^;"]+;?/gi, '')
+    .replace(/background-color\s*:\s*[^;"]+;?/gi, '')
+
+    // Ensure SVG root is transparent
+    .replace(/<svg([^>]*)>/i, (match, attrs) => {
+      if (attrs.includes('style=')) {
+        return match.replace(
+          /style="([^"]*)"/,
+          (m, style) => `style="${style};background:transparent;background-color:transparent;"`
+        );
+      } else {
+        return `<svg${attrs} style="background:transparent;background-color:transparent;">`;
+      }
+    });
+} 
+
 function addMolecule(){
   const smiles = smilesInput.value.trim();
   if (!smiles) {
@@ -352,6 +374,39 @@ function addMolecule(){
     setStatus('ChemRender is still loading...');
     return;
   }
+
+  try {
+    const mol = RDKitModuleRef.get_mol(smiles);
+    if (!mol) throw new Error('Could not parse SMILES');
+
+    // 🔥 KEY CHANGE: make SVG transparent
+    let svgText = mol.get_svg();
+    svgText = makeSvgTransparent(svgText);
+
+    const encoded = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+
+    pieces.push({
+      id: uid(),
+      type: 'media',
+      name: smiles,
+      src: encoded,
+      x: 100 + pieces.length * 10,
+      y: 100 + pieces.length * 10,
+      w: 220,
+      h: 160
+    });
+
+    selected = pieces[pieces.length - 1].id;
+
+    if (typeof mol.delete === 'function') mol.delete();
+
+    render();
+    setStatus('Molecule added to canvas.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Invalid SMILES string.');
+  }
+}
 
   try {
     const mol = RDKitModuleRef.get_mol(smiles);
