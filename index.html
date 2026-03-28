@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Impressionists' Canvas</title>
+<title>Impression Canvas</title>
 <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
 <style>
 :root {
@@ -211,7 +211,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
   <button type="button" onclick="addTextBox()">Add Text Box</button>
 
-  <h3>ChemRender</h3>
+  <h3>Chem Render</h3>
   <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
   <button type="button" onclick="addMolecule()">Add Molecule</button>
 
@@ -226,13 +226,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="sessionNameInput" placeholder="demo-canvas">
 
   <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
+  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" value="impressionists-canvas" placeholder="impressionists-canvas">
+  <input type="text" id="githubRepoInput" placeholder="impression-canvas">
 
   <label for="githubBranchInput">Branch</label>
-  <input type="text" id="githubBranchInput" placeholder="main">
+  <input type="text" id="githubBranchInput" value="main" placeholder="main">
 
   <label for="githubFolderInput">Folder path in repo</label>
   <input type="text" id="githubFolderInput" value="data" placeholder="data">
@@ -251,13 +251,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
 
   <label for="externalUrlInput">External JSON URL</label>
-  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../data/democanvas.json">
+  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../data/demo-canvas.json">
   <button type="button" onclick="loadExternalJson()">Load External JSON</button>
 
   <textarea id="embedBox" placeholder="Smaller Notion embed link appears here..."></textarea>
 
   <div id="status">Ready.</div>
-  <p class="small">This keeps the huge canvas data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/democanvas.json</code>.</p>
+  <p class="small">This keeps the huge canvas data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/demo-canvas.json</code>.</p>
 </div>
 
 <div id="canvas-wrap">
@@ -347,52 +347,95 @@ function showMediaContextMenu(x, y, pieceId) {
 function sanitizeSvgForTransparency(svgText) {
   let cleaned = String(svgText || '');
 
-  // remove explicit white background rects
   cleaned = cleaned.replace(
     /<rect\b[^>]*\bfill=(["'])(#fff|#ffffff|white)\1[^>]*>\s*<\/rect>/gi,
     ''
   );
 
-  // remove self-closing white background rects
   cleaned = cleaned.replace(
     /<rect\b[^>]*\bfill=(["'])(#fff|#ffffff|white)\1[^>]*\/>/gi,
     ''
   );
 
-  // turn any remaining white-filled rect into transparent
   cleaned = cleaned.replace(
     /<rect\b([^>]*?)\bfill=(["'])(#fff|#ffffff|white)\2([^>]*)>/gi,
-    '<rect$1fill=\"none\"$4>'
+    '<rect$1fill="none"$4>'
   );
 
-  // remove white background from inline style if present
   cleaned = cleaned.replace(
     /\bstyle=(["'])([^"']*)\bbackground(?:-color)?\s*:\s*(white|#fff|#ffffff)\s*;?([^"']*)\1/gi,
-    (match, quote, before, bg, after) => {
-      const merged = `${before} ${after}`
+    function(match, quote, before, bg, after) {
+      const merged = (before + ' ' + after)
         .replace(/\s*;\s*/g, '; ')
         .replace(/^\s+|\s+$/g, '')
         .replace(/^;|;$/g, '');
-      return merged ? `style=${quote}${merged}${quote}` : '';
+      return merged ? 'style=' + quote + merged + quote : '';
     }
   );
 
-  // force svg root background transparent
   cleaned = cleaned.replace(
     /<svg\b([^>]*)>/i,
-    (match, attrs) => {
+    function(match, attrs) {
       if (/style\s*=/i.test(attrs)) {
-        return `<svg${attrs.replace(
+        return '<svg' + attrs.replace(
           /style=(["'])(.*?)\1/i,
-          (m, q, style) => `style=${q}${style};background:transparent${q}`
-        )}>`;
+          function(m, q, style) {
+            return 'style=' + q + style + ';background:transparent' + q;
+          }
+        ) + '>';
       }
-      return `<svg${attrs} style="background:transparent">`;
+      return '<svg' + attrs + ' style="background:transparent">';
     }
   );
 
   return cleaned;
 }
+
+function getSvgCanvasSize(svgText) {
+  const fallback = { width: 220, height: 160 };
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return fallback;
+
+    const widthAttr = svg.getAttribute('width');
+    const heightAttr = svg.getAttribute('height');
+    const viewBoxAttr = svg.getAttribute('viewBox');
+
+    function parseDim(value) {
+      if (!value) return null;
+      const match = String(value).match(/([0-9]*\.?[0-9]+)/);
+      return match ? Number(match[1]) : null;
+    }
+
+    let width = parseDim(widthAttr);
+    let height = parseDim(heightAttr);
+
+    if ((!width || !height) && viewBoxAttr) {
+      const parts = viewBoxAttr.trim().split(/\s+/).map(Number);
+      if (parts.length === 4 && parts.every(n => Number.isFinite(n))) {
+        width = width || parts[2];
+        height = height || parts[3];
+      }
+    }
+
+    if (!width || !height) return fallback;
+
+    const maxWidth = 260;
+    const maxHeight = 180;
+    const scale = Math.min(maxWidth / width, maxHeight / height, 1.8);
+
+    return {
+      width: Math.max(120, Math.round(width * scale)),
+      height: Math.max(90, Math.round(height * scale))
+    };
+  } catch (error) {
+    return fallback;
+  }
+} 
+
 function downloadTextAsFile(content, filename, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const blobUrl = URL.createObjectURL(blob);
@@ -427,10 +470,10 @@ function savePieceMedia(piece) {
 async function initializeRDKit() {
   try {
     RDKitModuleRef = await initRDKitModule();
-    setStatus('ChemRender ready.');
+    setStatus('Chem render ready.');
   } catch (error) {
     console.error(error);
-    setStatus('ChemRender could not load.');
+    setStatus('Chem render could not load.');
   }
 }
 
@@ -472,7 +515,7 @@ function addMolecule(){
   }
 
   if (!RDKitModuleRef) {
-    setStatus('ChemRender is still loading...');
+    setStatus('Chem render is still loading...');
     return;
   }
 
@@ -489,8 +532,8 @@ function addMolecule(){
       src: encoded,
       x: 100 + pieces.length * 10,
       y: 100 + pieces.length * 10,
-      w: 220,
-      h: 160
+      w: svgSize.width,
+      h: svgSize.height
     });
     selected = pieces[pieces.length - 1].id;
     if (typeof mol.delete === 'function') mol.delete();
