@@ -3,26 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anatomy Board Game</title>
+<title>Board Game Sandbox</title>
 <style>
 :root {
   --grid-size: 24px;
   --accent: #2f55ff;
+  --sidebar-width: 320px;
+  --minor-grid: rgba(187, 187, 187, 0.35);
+  --major-grid: rgba(187, 187, 187, 0.85);
 }
 
 * { box-sizing: border-box; }
-body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; }
+html, body { height: 100%; }
+body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; overflow:hidden; }
+body.sidebar-collapsed #sidebar {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border-right: none;
+  overflow: hidden;
+}
+body.sidebar-collapsed #sidebar > * {
+  opacity: 0;
+  pointer-events: none;
+}
 
 #sidebar {
-  width:320px; padding:12px; background:#f3f6fb; overflow:auto; border-right:1px solid #d9e0ea;
+  width:var(--sidebar-width); min-width:var(--sidebar-width); padding:12px; background:#f3f6fb; overflow:auto; border-right:1px solid #d9e0ea;
+  transition: width 0.22s ease, min-width 0.22s ease, padding 0.22s ease, border-right-color 0.22s ease;
+}
+#sidebar > * { transition: opacity 0.16s ease; }
+
+#board-wrap {
+  flex:1; min-width:0; position:relative; display:flex;
 }
 
 #board {
   flex:1; position:relative; overflow:auto;
-  background:
-    linear-gradient(#bbb 1px, transparent 1px),
-    linear-gradient(90deg, #bbb 1px, transparent 1px);
-  background-size: var(--grid-size) var(--grid-size);
+  background-color: white;
+  background-image:
+    linear-gradient(var(--minor-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--minor-grid) 1px, transparent 1px),
+    linear-gradient(var(--major-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--major-grid) 1px, transparent 1px);
+  background-size:
+    var(--grid-size) var(--grid-size),
+    var(--grid-size) var(--grid-size),
+    calc(var(--grid-size) * 5) calc(var(--grid-size) * 5),
+    calc(var(--grid-size) * 5) calc(var(--grid-size) * 5);
+  background-position: 0 0, 0 0, 0 0, 0 0;
 }
 
 #surface {
@@ -49,6 +78,28 @@ body { margin:0; font-family:sans-serif; display:flex; min-height:100vh; }
   cursor:nwse-resize;
 }
 
+#sidebarToggle {
+  position:absolute;
+  top:14px;
+  left:14px;
+  z-index:20;
+  width:38px;
+  height:38px;
+  border:1px solid #d9e0ea;
+  background:#f3f6fb;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+}
+
+#sidebarToggle svg {
+  width:18px;
+  height:18px;
+}
+
 input[type="text"],
 input[type="password"],
 textarea,
@@ -57,7 +108,7 @@ input[type="file"],
 select { width:100%; }
 
 textarea { min-height:90px; resize:vertical; }
-button, input, textarea { margin-top:6px; padding:8px; }
+button, input, textarea, select { margin-top:6px; padding:8px; }
 button { cursor:pointer; }
 label { display:block; margin-top:10px; font-size:14px; }
 .small { font-size:12px; color:#566; line-height:1.35; }
@@ -84,16 +135,16 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="sessionNameInput" placeholder="respiratory-board-01">
 
   <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
+  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" value= "biol228-gameboard" placeholder="biol228-gameboard">
+  <input type="text" id="githubRepoInput" placeholder="biol228-gameboard">
 
   <label for="githubBranchInput">Branch</label>
   <input type="text" id="githubBranchInput" value="main" placeholder="main">
 
   <label for="githubFolderInput">Folder path in repo</label>
-  <input type="text" id="githubFolderInput" value="data" placeholder="data">
+  <input type="text" id="githubFolderInput" value="sessions" placeholder="sessions">
 
   <label for="githubTokenInput">GitHub personal access token</label>
   <input type="password" id="githubTokenInput" placeholder="token with repo contents write access">
@@ -118,7 +169,16 @@ label { display:block; margin-top:10px; font-size:14px; }
   <p class="small">This keeps the huge board data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-board-01.json</code>.</p>
 </div>
 
-<div id="board"><div id="surface"></div></div>
+<div id="board-wrap">
+  <button type="button" id="sidebarToggle" aria-label="Close sidebar" title="Close sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+      <path d="M9 4v16"></path>
+      <path id="toggleChevron" d="M15 9l-3 3 3 3"></path>
+    </svg>
+  </button>
+  <div id="board"><div id="surface"></div></div>
+</div>
 
 <script>
 const surface = document.getElementById('surface');
@@ -135,9 +195,12 @@ const githubBranchInput = document.getElementById('githubBranchInput');
 const githubFolderInput = document.getElementById('githubFolderInput');
 const githubTokenInput = document.getElementById('githubTokenInput');
 const githubBoardsSelect = document.getElementById('githubBoardsSelect');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const toggleChevron = document.getElementById('toggleChevron');
 
 let pieces = [];
 let selected = null;
+let sidebarCollapsed = false;
 
 function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
@@ -155,6 +218,16 @@ function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function base64ToUtf8(str){ return decodeURIComponent(escape(atob(str))); }
 function getPayload(){ return { version: 1, savedAt: new Date().toISOString(), pieces }; }
 function getCurrentSiteBase(){ return window.location.origin + window.location.pathname; }
+function updateSidebarToggle(){
+  document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+  sidebarToggle.setAttribute('aria-label', sidebarCollapsed ? 'Open sidebar' : 'Close sidebar');
+  sidebarToggle.setAttribute('title', sidebarCollapsed ? 'Open sidebar' : 'Close sidebar');
+  toggleChevron.setAttribute('d', sidebarCollapsed ? 'M12 9l3 3-3 3' : 'M15 9l-3 3 3 3');
+}
+function toggleSidebar(){
+  sidebarCollapsed = !sidebarCollapsed;
+  updateSidebarToggle();
+}
 
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
@@ -445,6 +518,8 @@ async function loadFromQueryParam(){
   }
   return false;
 }
+
+sidebarToggle.addEventListener('click', toggleSidebar);
 
 (async function boot(){
   if (location.hash.startsWith('#json=')) {
