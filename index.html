@@ -121,10 +121,10 @@ label { display:block; margin-top:10px; font-size:14px; }
 <body>
 
 <div id="sidebar">
-  <h3>Import</h3>
+  <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg">
 
-  <h3>Local Session</h3>
+  <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
   <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
   <button type="button" onclick="copyUrl()">Copy URL</button>
@@ -150,23 +150,23 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="password" id="githubTokenInput" placeholder="'repo' field enabled + write 'access' for 'Note' field">
 
   <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
-  <button type="button" onclick="refreshGitHubBoards()">Refresh GitHub Canva</button>
+  <button type="button" onclick="refreshGitHubCanvases()">Refresh GitHub Canvases</button>
 
-  <label for="githubBoardsSelect">Saved Canva in GitHub folder</label>
+  <label for="githubBoardsSelect">Saved Canvases in GitHub folder</label>
   <select id="githubBoardsSelect">
     <option value="">Choose a saved canvas...</option>
   </select>
-  <button type="button" onclick="loadSelectedGitHubBoard()">Load Selected GitHub Canvas</button>
+  <button type="button" onclick="loadSelectedGitHubCanvas()">Load Selected GitHub Canvas</button>
   <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
 
   <label for="externalUrlInput">External JSON URL</label>
-  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../data/demo-board.json">
+  <input type="text" id="externalUrlInput" placeholder="https://raw.githubusercontent.com/.../data/demo-canvas.json">
   <button type="button" onclick="loadExternalJson()">Load External JSON</button>
 
   <textarea id="embedBox" placeholder="Smaller Notion embed link appears here..."></textarea>
 
   <div id="status">Ready.</div>
-  <p class="small">This keeps the huge board data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-board-01.json</code>.</p>
+  <p class="small">This keeps the huge canvas data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-canvas-01.json</code>.</p>
 </div>
 
 <div id="board-wrap">
@@ -206,13 +206,13 @@ function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
 function clamp(v, min, max){ return Math.min(max, Math.max(min, v)); }
 function safeName(name){
-  return (name || 'board-session')
+  return (name || 'canvas-session')
     .trim()
     .toLowerCase()
     .replace(/\.json$/i, '')
     .replace(/[^a-z0-9-_]+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '') || 'board-session';
+    .replace(/^-|-$/g, '') || 'canvas-session';
 }
 function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function base64ToUtf8(str){ return decodeURIComponent(escape(atob(str))); }
@@ -401,13 +401,13 @@ async function saveSessionToGitHub(){
   }
 
   try {
-    setStatus('Saving session to GitHub...');
+    setStatus('Saving canvas to GitHub...');
     const sha = await getExistingSha(owner, repo, branch, path, token);
     const payload = utf8ToBase64(JSON.stringify(getPayload(), null, 2));
     const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
 
     const body = {
-      message: `Save board session ${sessionName}`,
+      message: `Save canvas ${sessionName}`,
       content: payload,
       branch
     };
@@ -431,15 +431,15 @@ async function saveSessionToGitHub(){
 
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
     externalUrlInput.value = rawUrl;
-    setStatus(`Saved session to GitHub.\nRaw JSON URL:\n${rawUrl}`);
+    setStatus(`Saved canvas to GitHub.\nRaw JSON URL:\n${rawUrl}`);
   } catch (e) {
     alert('GitHub save failed. Check repo name, branch, path, and token access.');
     setStatus('GitHub save failed.\n' + e.message);
   }
 }
 
-function populateGitHubBoards(items) {
-  githubBoardsSelect.innerHTML = '<option value="">Choose a saved canva...</option>';
+function populateGitHubCanvases(items) {
+  githubBoardsSelect.innerHTML = '<option value="">Choose a saved canvas...</option>';
   items.forEach(item => {
     const option = document.createElement('option');
     option.value = item.url;
@@ -448,7 +448,7 @@ function populateGitHubBoards(items) {
   });
 }
 
-async function refreshGitHubBoards(){
+async function refreshGitHubCanvases(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
   const branch = githubBranchInput.value.trim() || 'main';
@@ -461,7 +461,7 @@ async function refreshGitHubBoards(){
   }
 
   try {
-    setStatus('Loading saved canva from GitHub...');
+    setStatus('Loading saved canvases from GitHub...');
     const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${folder.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`;
     const headers = {
       'Accept': 'application/vnd.github+json',
@@ -473,25 +473,25 @@ async function refreshGitHubBoards(){
     if (!res.ok) throw new Error('Fetch failed: ' + res.status);
     const data = await res.json();
 
-    const boards = (Array.isArray(data) ? data : [])
+    const canvases = (Array.isArray(data) ? data : [])
       .filter(item => item.type === 'file' && /\.json$/i.test(item.name))
       .map(item => ({
         label: item.name.replace(/\.json$/i, ''),
         url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${folder}/${item.name}`
       }));
 
-    populateGitHubBoards(boards);
-    setStatus(boards.length ? `Loaded ${boards.length} saved board(s) from GitHub.` : 'No saved JSON canva found in that GitHub folder.');
+    populateGitHubCanvases(canvases);
+    setStatus(canvases.length ? `Loaded ${canvases.length} saved canvas(es) from GitHub.` : 'No saved JSON canvases found in that GitHub folder.');
   } catch (e) {
-    alert('Could not load saved boards from GitHub.');
-    setStatus('Could not load saved boards from GitHub. ' + e.message);
+    alert('Could not load saved canvases from GitHub.');
+    setStatus('Could not load saved canvases from GitHub. ' + e.message);
   }
 }
 
-async function loadSelectedGitHubBoard(){
+async function loadSelectedGitHubCanvas(){
   const selectedUrl = githubBoardsSelect.value;
   if (!selectedUrl) {
-    setStatus('Choose a saved GitHub board first.');
+    setStatus('Choose a saved GitHub canvas first.');
     return;
   }
   await loadExternalJson(selectedUrl);
@@ -500,7 +500,7 @@ async function loadSelectedGitHubBoard(){
 function makeEmbedLink(){
   const rawUrl = externalUrlInput.value.trim();
   if (!rawUrl) {
-    setStatus('Save to GitHub first, or paste an external JSON URL.');
+    setStatus('Save canvas to GitHub first, or paste an external JSON URL.');
     return;
   }
   const embedUrl = `${getCurrentSiteBase()}?load=${encodeURIComponent(rawUrl)}`;
@@ -529,7 +529,7 @@ sidebarToggle.addEventListener('click', toggleSidebar);
   }
   render();
   if (githubOwnerInput.value.trim() && githubRepoInput.value.trim()) {
-    refreshGitHubBoards();
+    refreshGitHubCanvases();
   }
 })();
 </script>
