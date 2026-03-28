@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Impression Canvas</title>
+<script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
 <style>
 :root {
   --grid-size: 24px;
@@ -184,6 +185,10 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
   <button type="button" onclick="addTextBox()">Add Text Box</button>
 
+  <h3>Chem Renderer</h3>
+  <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
+  <button type="button" onclick="addMolecule()">Add Molecule</button>
+
   <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
   <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
@@ -192,16 +197,16 @@ label { display:block; margin-top:10px; font-size:14px; }
 
   <h3>GitHub Session Save</h3>
   <label for="sessionNameInput">Session file name</label>
-  <input type="text" id="sessionNameInput" placeholder="demo-canvas">
+  <input type="text" id="sessionNameInput" placeholder="democanvas">
 
   <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
+  <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
   <input type="text" id="githubRepoInput" placeholder="impression-canvas">
 
   <label for="githubBranchInput">Branch</label>
-  <input type="text" id="githubBranchInput" value="main" placeholder="main">
+  <input type="text" id="githubBranchInput" value="branch" placeholder="main">
 
   <label for="githubFolderInput">Folder path in repo</label>
   <input type="text" id="githubFolderInput" value="data" placeholder="data">
@@ -247,6 +252,7 @@ const urlBox = document.getElementById('urlBox');
 const embedBox = document.getElementById('embedBox');
 const externalUrlInput = document.getElementById('externalUrlInput');
 const statusBox = document.getElementById('status');
+const smilesInput = document.getElementById('smilesInput');
 
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
@@ -261,6 +267,7 @@ const toggleChevron = document.getElementById('toggleChevron');
 let pieces = [];
 let selected = null;
 let sidebarCollapsed = false;
+let RDKitModuleRef = null;
 
 function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
@@ -294,6 +301,16 @@ function removePiece(id){
   render();
 }
 
+async function initializeRDKit() {
+  try {
+    RDKitModuleRef = await initRDKitModule();
+    setStatus('Chem renderer ready.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Chem renderer could not load.');
+  }
+}
+
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
     if (!(f.type === 'image/png' || f.type === 'image/jpeg' || f.type === 'image/svg+xml' || /\.svg$/i.test(f.name))) continue;
@@ -322,6 +339,43 @@ function addTextBox(){
   });
   selected = pieces[pieces.length - 1].id;
   render();
+}
+
+function addMolecule(){
+  const smiles = smilesInput.value.trim();
+  if (!smiles) {
+    setStatus('Enter a SMILES string first.');
+    return;
+  }
+
+  if (!RDKitModuleRef) {
+    setStatus('Chem renderer is still loading...');
+    return;
+  }
+
+  try {
+    const mol = RDKitModuleRef.get_mol(smiles);
+    if (!mol) throw new Error('Could not parse SMILES');
+    const svgText = mol.get_svg();
+    const encoded = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+    pieces.push({
+      id: uid(),
+      type: 'media',
+      name: smiles,
+      src: encoded,
+      x: 100 + pieces.length * 10,
+      y: 100 + pieces.length * 10,
+      w: 220,
+      h: 160
+    });
+    selected = pieces[pieces.length - 1].id;
+    if (typeof mol.delete === 'function') mol.delete();
+    render();
+    setStatus('Molecule added to canvas.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Invalid SMILES string.');
+  }
 }
 
 function render(){
@@ -651,6 +705,7 @@ async function loadFromQueryParam(){
 sidebarToggle.addEventListener('click', toggleSidebar);
 
 (async function boot(){
+  initializeRDKit();
   if (location.hash.startsWith('#json=')) {
     loadSessionUrl();
   } else {
