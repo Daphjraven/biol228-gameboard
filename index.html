@@ -58,16 +58,50 @@ body.sidebar-collapsed #sidebar > * {
   width:2200px; height:1400px; position:relative;
 }
 
-.piece {
+.piece,
+.textbox {
   position:absolute;
-  cursor:grab;
   border:2px solid transparent;
 }
 
-.piece.selected { border-color:var(--accent); }
+.piece {
+  cursor:grab;
+}
+
+.piece.selected,
+.textbox.selected {
+  border-color:var(--accent);
+}
 
 .piece img {
   width:100%; height:100%; object-fit:contain; pointer-events:none; display:block;
+}
+
+.textbox {
+  background:white;
+  min-width:140px;
+  min-height:72px;
+  display:flex;
+  flex-direction:column;
+}
+
+.textbox-dragbar {
+  padding:6px 8px;
+  background:#f3f6fb;
+  border-bottom:1px solid #d9e0ea;
+  cursor:grab;
+  font-size:12px;
+  color:#566;
+  user-select:none;
+}
+
+.textbox-content {
+  flex:1;
+  padding:8px;
+  outline:none;
+  white-space:pre-wrap;
+  overflow:auto;
+  min-height:46px;
 }
 
 .resize-handle {
@@ -76,6 +110,31 @@ body.sidebar-collapsed #sidebar > * {
   right:-6px; bottom:-6px;
   background:var(--accent); border-radius:3px;
   cursor:nwse-resize;
+}
+
+.delete-handle {
+  position:absolute;
+  top:-8px;
+  right:-8px;
+  width:20px;
+  height:20px;
+  border:none;
+  border-radius:999px;
+  background:#ffffff;
+  color:var(--accent);
+  box-shadow:0 1px 4px rgba(0,0,0,0.18);
+  font-size:14px;
+  line-height:1;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+
+.piece.selected .delete-handle,
+.textbox.selected .delete-handle {
+  display:flex;
 }
 
 #sidebarToggle {
@@ -123,6 +182,7 @@ label { display:block; margin-top:10px; font-size:14px; }
 <div id="sidebar">
   <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
+  <button type="button" onclick="addTextBox()">Add Text Box</button>
 
   <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
@@ -166,7 +226,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <textarea id="embedBox" placeholder="Smaller Notion embed link appears here..."></textarea>
 
   <div id="status">Ready.</div>
-  <p class="small">This keeps the huge canvas data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/respiratory-canvas-01.json</code>.</p>
+  <p class="small">This keeps the huge canvas data out of the Notion URL. Each session saves as a JSON file in your GitHub repo, like <code>sessions/demo-canvas.json</code>.</p>
 </div>
 
 <div id="canvas-wrap">
@@ -228,6 +288,11 @@ function toggleSidebar(){
   sidebarCollapsed = !sidebarCollapsed;
   updateSidebarToggle();
 }
+function removePiece(id){
+  pieces = pieces.filter(x => x.id !== id);
+  if (selected === id) selected = null;
+  render();
+}
 
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
@@ -240,7 +305,21 @@ fileInput.onchange = async e => {
 };
 
 function addPiece(src, name = 'image'){
-  pieces.push({ id:uid(), name, src, x:100 + pieces.length * 10, y:100 + pieces.length * 10, w:120, h:120 });
+  pieces.push({ id:uid(), type:'media', name, src, x:100 + pieces.length * 10, y:100 + pieces.length * 10, w:120, h:120 });
+  selected = pieces[pieces.length - 1].id;
+  render();
+}
+
+function addTextBox(){
+  pieces.push({
+    id: uid(),
+    type: 'text',
+    text: 'Type here...',
+    x: 140 + pieces.length * 10,
+    y: 140 + pieces.length * 10,
+    w: 220,
+    h: 120
+  });
   selected = pieces[pieces.length - 1].id;
   render();
 }
@@ -248,25 +327,66 @@ function addPiece(src, name = 'image'){
 function render(){
   surface.innerHTML = '';
   pieces.forEach(p => {
+    const isText = p.type === 'text';
     const el = document.createElement('div');
-    el.className = 'piece' + (p.id===selected?' selected':'');
+    el.className = (isText ? 'textbox' : 'piece') + (p.id===selected?' selected':'');
     el.style.left = p.x+'px';
     el.style.top = p.y+'px';
     el.style.width = p.w+'px';
     el.style.height = p.h+'px';
     el.dataset.id = p.id;
 
-    const img = document.createElement('img');
-    img.src = p.src;
-    img.alt = p.name || 'piece';
-    el.appendChild(img);
+    const deleteHandle = document.createElement('button');
+    deleteHandle.type = 'button';
+    deleteHandle.className = 'delete-handle';
+    deleteHandle.setAttribute('aria-label', isText ? 'Delete text box' : 'Delete media');
+    deleteHandle.title = isText ? 'Delete text box' : 'Delete media';
+    deleteHandle.textContent = '×';
+    deleteHandle.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      removePiece(p.id);
+    });
+    el.appendChild(deleteHandle);
+
+    let dragTarget = el;
+
+    if (isText) {
+      const dragbar = document.createElement('div');
+      dragbar.className = 'textbox-dragbar';
+      dragbar.textContent = 'Drag text box';
+      el.appendChild(dragbar);
+      dragTarget = dragbar;
+
+      const content = document.createElement('div');
+      content.className = 'textbox-content';
+      content.contentEditable = 'true';
+      content.spellcheck = false;
+      content.textContent = p.text || '';
+      content.addEventListener('input', () => {
+        p.text = content.textContent;
+      });
+      content.addEventListener('click', e => {
+        e.stopPropagation();
+        if (selected !== p.id) {
+          selected = p.id;
+          render();
+        }
+      });
+      el.appendChild(content);
+    } else {
+      const img = document.createElement('img');
+      img.src = p.src;
+      img.alt = p.name || 'piece';
+      el.appendChild(img);
+    }
 
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
     el.appendChild(handle);
 
-    el.addEventListener('pointerdown', e => {
-      if (e.target === handle) return;
+    dragTarget.addEventListener('pointerdown', e => {
+      if (e.target === handle || e.target === deleteHandle) return;
       selected = p.id;
       const startX = e.clientX, startY = e.clientY;
       const ox = p.x, oy = p.y;
@@ -292,8 +412,8 @@ function render(){
       const ow = p.w, oh = p.h;
 
       function move(ev){
-        p.w = Math.max(30, ow + (ev.clientX - startX));
-        p.h = Math.max(30, oh + (ev.clientY - startY));
+        p.w = Math.max(isText ? 140 : 30, ow + (ev.clientX - startX));
+        p.h = Math.max(isText ? 72 : 30, oh + (ev.clientY - startY));
         render();
       }
       function up(){ window.removeEventListener('pointermove', move); render(); }
@@ -301,12 +421,21 @@ function render(){
       window.addEventListener('pointerup', up, { once:true });
     });
 
+    if (!isText) {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        if (selected !== p.id) {
+          selected = p.id;
+          render();
+        }
+      });
+    }
+
     el.addEventListener('dblclick', e => {
+      if (isText && e.target.classList.contains('textbox-content')) return;
       e.preventDefault();
       e.stopPropagation();
-      pieces = pieces.filter(x => x.id !== p.id);
-      if (selected === p.id) selected = null;
-      render();
+      removePiece(p.id);
     });
 
     surface.appendChild(el);
