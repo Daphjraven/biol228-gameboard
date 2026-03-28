@@ -215,6 +215,15 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
   <button type="button" onclick="addMolecule()">Add Molecule</button>
 
+  <select id="mechanismArrowSelect">
+  <option value="reaction">Reaction arrow →</option>
+  <option value="equilibrium">Equilibrium ⇌</option>
+  <option value="resonance">Resonance ↔</option>
+  <option value="curved">Curved electron arrow</option>
+</select>
+<button type="button" onclick="addMechanismArrow()">Add Mechanism Arrow</button>
+<button type="button" onclick="addTransparentLabel()">Add Transparent Label</button>
+  
   <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
   <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
@@ -285,6 +294,7 @@ const statusBox = document.getElementById('status');
 const smilesInput = document.getElementById('smilesInput');
 const mediaContextMenu = document.getElementById('mediaContextMenu');
 const saveMediaButton = document.getElementById('saveMediaButton');
+const mechanismArrowSelect = document.getElementById('mechanismArrowSelect');
 
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
