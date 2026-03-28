@@ -220,6 +220,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <option value="equilibrium">Equilibrium ⇌</option>
   <option value="resonance">Resonance ↔</option>
   <option value="curved">Curved electron arrow</option>
+  <option value="fishhook">Fishhook (single electron)</option>
 </select>
 
 <button type="button" onclick="addMechanismArrow()">Add Mechanism Arrow</button>
@@ -548,20 +549,21 @@ function addTextBox(){
 
 function createArrowSvg(type) {
   const svgMap = {
-    reaction: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="80" viewBox="0 0 220 80"><path d="M20 40 H180" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M180 40 L160 28 M180 40 L160 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    equilibrium: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90" viewBox="0 0 220 90">
-  <!-- top arrow -->
+  reaction: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="80" viewBox="0 0 220 80"><path d="M20 40 H180" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M180 40 L160 28 M180 40 L160 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  equilibrium: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90" viewBox="0 0 220 90">
   <path d="M30 30 H180" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/>
   <path d="M180 30 L165 22 M180 30 L165 38" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/>
-  
-  <!-- bottom arrow (shorter + offset) -->
   <path d="M190 60 H40" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/>
   <path d="M40 60 L55 52 M40 60 L55 68" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/>
 </svg>`,
-    resonance: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="80" viewBox="0 0 220 80"><path d="M30 40 H190" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M190 40 L172 28 M190 40 L172 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 40 L48 28 M30 40 L48 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    curved: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><path d="M38 102 C52 62, 95 38, 150 54 C160 58, 168 64, 174 72" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M174 72 L157 64 M174 72 L164 87" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-    fishhook: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><path d="M40 100 C55 55, 115 40, 165 70" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><!-- single barb --><path d="M165 70 L150 60" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`
-  };
+
+  resonance: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="80" viewBox="0 0 220 80"><path d="M30 40 H190" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M190 40 L172 28 M190 40 L172 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 40 L48 28 M30 40 L48 52" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  curved: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><path d="M38 102 C52 62, 95 38, 150 54 C160 58, 168 64, 174 72" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M174 72 L157 64 M174 72 L164 87" stroke="black" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  fishhook: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140"><path d="M40 100 C55 55, 115 40, 165 70" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M165 70 L150 60" stroke="black" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`
+};
 
   return svgMap[type] || svgMap.reaction;
 }
@@ -574,7 +576,8 @@ function addMechanismArrow() {
     reaction: { w: 220, h: 80 },
     equilibrium: { w: 220, h: 90 },
     resonance: { w: 220, h: 80 },
-    curved: { w: 220, h: 140 }
+    curved: { w: 220, h: 140 },
+    fishhook: { w: 220, h: 140 }
   };
 
   const size = sizeMap[arrowType] || sizeMap.reaction;
