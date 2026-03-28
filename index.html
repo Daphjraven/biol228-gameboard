@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Impression Canvas</title>
+<title>Impressionists' Canvas</title>
+<script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
 <style>
 :root {
   --grid-size: 24px;
@@ -137,6 +138,32 @@ body.sidebar-collapsed #sidebar > * {
   display:flex;
 }
 
+#mediaContextMenu {
+  position:fixed;
+  z-index:1000;
+  min-width:160px;
+  background:white;
+  border:1px solid #d9e0ea;
+  border-radius:10px;
+  box-shadow:0 8px 22px rgba(0,0,0,0.14);
+  padding:6px;
+  display:none;
+}
+
+#mediaContextMenu button {
+  margin:0;
+  width:100%;
+  text-align:left;
+  border:none;
+  background:transparent;
+  padding:10px 12px;
+  border-radius:8px;
+}
+
+#mediaContextMenu button:hover {
+  background:#f3f6fb;
+}
+
 #sidebarToggle {
   position:absolute;
   top:14px;
@@ -184,6 +211,10 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
   <button type="button" onclick="addTextBox()">Add Text Box</button>
 
+  <h3>ChemRender</h3>
+  <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
+  <button type="button" onclick="addMolecule()">Add Molecule</button>
+
   <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
   <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
@@ -195,13 +226,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="sessionNameInput" placeholder="demo-canvas">
 
   <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
+  <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" placeholder="impression-canvas">
+  <input type="text" id="githubRepoInput" value="impressionists-canvas" placeholder="impressionists-canvas">
 
   <label for="githubBranchInput">Branch</label>
-  <input type="text" id="githubBranchInput" value="main" placeholder="main">
+  <input type="text" id="githubBranchInput" value="chem" placeholder="main">
 
   <label for="githubFolderInput">Folder path in repo</label>
   <input type="text" id="githubFolderInput" value="data" placeholder="data">
@@ -240,6 +271,10 @@ label { display:block; margin-top:10px; font-size:14px; }
   <div id="canvas"><div id="surface"></div></div>
 </div>
 
+<div id="mediaContextMenu">
+  <button type="button" id="saveMediaButton">Save media</button>
+</div>
+
 <script>
 const surface = document.getElementById('surface');
 const fileInput = document.getElementById('fileInput');
@@ -247,6 +282,9 @@ const urlBox = document.getElementById('urlBox');
 const embedBox = document.getElementById('embedBox');
 const externalUrlInput = document.getElementById('externalUrlInput');
 const statusBox = document.getElementById('status');
+const smilesInput = document.getElementById('smilesInput');
+const mediaContextMenu = document.getElementById('mediaContextMenu');
+const saveMediaButton = document.getElementById('saveMediaButton');
 
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
@@ -261,6 +299,8 @@ const toggleChevron = document.getElementById('toggleChevron');
 let pieces = [];
 let selected = null;
 let sidebarCollapsed = false;
+let RDKitModuleRef = null;
+let contextMenuPieceId = null;
 
 function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
@@ -291,15 +331,188 @@ function toggleSidebar(){
 function removePiece(id){
   pieces = pieces.filter(x => x.id !== id);
   if (selected === id) selected = null;
+  hideMediaContextMenu();
   render();
+}
+function hideMediaContextMenu() {
+  mediaContextMenu.style.display = 'none';
+  contextMenuPieceId = null;
+}
+function showMediaContextMenu(x, y, pieceId) {
+  contextMenuPieceId = pieceId;
+  mediaContextMenu.style.left = `${x}px`;
+  mediaContextMenu.style.top = `${y}px`;
+  mediaContextMenu.style.display = 'block';
+}
+function sanitizeSvgForTransparency(svgText) {
+  let cleaned = String(svgText || '');
+
+  // remove full white rect blocks
+  cleaned = cleaned.replace(
+    /<rect\b[^>]*\bfill=(["'])(#fff|#ffffff|white)\1[^>]*>\s*<\/rect>/gi,
+    ''
+  );
+
+  cleaned = cleaned.replace(
+    /<rect\b[^>]*\bfill=(["'])(#fff|#ffffff|white)\1[^>]*\/>/gi,
+    ''
+  );
+
+  // catch white fill written in style=""
+  cleaned = cleaned.replace(
+    /<rect\b([^>]*?)style=(["'])(.*?)\2([^>]*)>/gi,
+    function(match, before, quote, styleText, after) {
+      let style = styleText
+        .replace(/fill\s*:\s*(white|#fff|#ffffff)\s*;?/gi, 'fill:none;')
+        .replace(/background(?:-color)?\s*:\s*(white|#fff|#ffffff)\s*;?/gi, 'background:transparent;');
+      return '<rect' + before + 'style=' + quote + style + quote + after + '>';
+    }
+  );
+
+  // convert remaining white-filled rects to transparent
+  cleaned = cleaned.replace(
+    /<rect\b([^>]*?)\bfill=(["'])(#fff|#ffffff|white)\2([^>]*)>/gi,
+    '<rect$1fill="none"$4>'
+  );
+
+  // remove white background on svg style if present
+  cleaned = cleaned.replace(
+    /\bstyle=(["'])([^"']*)\1/gi,
+    function(match, quote, styleText) {
+      let style = styleText
+        .replace(/background(?:-color)?\s*:\s*(white|#fff|#ffffff)\s*;?/gi, 'background:transparent;')
+        .replace(/fill\s*:\s*(white|#fff|#ffffff)\s*;?/gi, 'fill:none;');
+      return 'style=' + quote + style + quote;
+    }
+  );
+
+  // force root svg to transparent background
+  cleaned = cleaned.replace(
+    /<svg\b([^>]*)>/i,
+    function(match, attrs) {
+      if (/style\s*=/i.test(attrs)) {
+        return '<svg' + attrs.replace(
+          /style=(["'])(.*?)\1/i,
+          function(m, q, style) {
+            const patched = style
+              .replace(/background(?:-color)?\s*:\s*(white|#fff|#ffffff)\s*;?/gi, '')
+              + ';background:transparent';
+            return 'style=' + q + patched + q;
+          }
+        ) + '>';
+      }
+      return '<svg' + attrs + ' style="background:transparent">';
+    }
+  );
+
+  return cleaned;
+}
+
+function getSvgCanvasSize(svgText) {
+  const fallback = { width: 220, height: 160 };
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return fallback;
+
+    const widthAttr = svg.getAttribute('width');
+    const heightAttr = svg.getAttribute('height');
+    const viewBoxAttr = svg.getAttribute('viewBox');
+
+    function parseDim(value) {
+      if (!value) return null;
+      const match = String(value).match(/([0-9]*\.?[0-9]+)/);
+      return match ? Number(match[1]) : null;
+    }
+
+    let width = parseDim(widthAttr);
+    let height = parseDim(heightAttr);
+
+    if ((!width || !height) && viewBoxAttr) {
+      const parts = viewBoxAttr.trim().split(/\s+/).map(Number);
+      if (parts.length === 4 && parts.every(n => Number.isFinite(n))) {
+        width = width || parts[2];
+        height = height || parts[3];
+      }
+    }
+
+    if (!width || !height) return fallback;
+
+    const maxWidth = 260;
+    const maxHeight = 180;
+    const scale = Math.min(maxWidth / width, maxHeight / height, 1.8);
+
+    return {
+      width: Math.max(120, Math.round(width * scale)),
+      height: Math.max(90, Math.round(height * scale))
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+  
+function svgToDataUrl(svgText) {
+  const cleaned = sanitizeSvgForTransparency(svgText);
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(cleaned);
+}
+function downloadTextAsFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(blobUrl);
+}
+function savePieceMedia(piece) {
+  if (!piece || piece.type !== 'media') return;
+  const safeBase = safeName(piece.name || 'canvas-media');
+
+  if (typeof piece.src === 'string' && piece.src.startsWith('data:image/svg+xml')) {
+    const svgContent = decodeURIComponent(piece.src.split(',')[1] || '');
+    downloadTextAsFile(svgContent, `${safeBase}.svg`, 'image/svg+xml');
+    setStatus('Saved media as SVG.');
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.href = piece.src;
+  link.download = /\.svg$/i.test(piece.name || '') ? `${safeBase}.svg` : `${safeBase}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setStatus('Saved media.');
+}
+
+async function initializeRDKit() {
+  try {
+    RDKitModuleRef = await initRDKitModule();
+    setStatus('ChemRender ready.');
+  } catch (error) {
+    console.error(error);
+    setStatus('ChemRender could not load.');
+  }
 }
 
 fileInput.onchange = async e => {
   for (let f of e.target.files) {
-    if (!(f.type === 'image/png' || f.type === 'image/jpeg' || f.type === 'image/svg+xml' || /\.svg$/i.test(f.name))) continue;
+    const isSvg = f.type === 'image/svg+xml' || /\.svg$/i.test(f.name);
+    const isRaster = f.type === 'image/png' || f.type === 'image/jpeg';
+    if (!isSvg && !isRaster) continue;
+
     const r = new FileReader();
-    r.onload = () => addPiece(r.result, f.name);
-    r.readAsDataURL(f);
+    if (isSvg) {
+      r.onload = () => addPiece(svgToDataUrl(r.result), f.name);
+      r.readAsText(f);
+    } else {
+      r.onload = () => addPiece(r.result, f.name);
+      r.readAsDataURL(f);
+    }
   }
   fileInput.value = '';
 };
@@ -322,6 +535,47 @@ function addTextBox(){
   });
   selected = pieces[pieces.length - 1].id;
   render();
+}
+
+function addMolecule(){
+  const smiles = smilesInput.value.trim();
+  if (!smiles) {
+    setStatus('Enter a SMILES string first.');
+    return;
+  }
+
+  if (!RDKitModuleRef) {
+    setStatus('ChemRender is still loading...');
+    return;
+  }
+
+  try {
+    const mol = RDKitModuleRef.get_mol(smiles);
+    if (!mol) throw new Error('Could not parse SMILES');
+const rawSvg = mol.get_svg();
+console.log(rawSvg);
+const transparentSvg = sanitizeSvgForTransparency(rawSvg);
+const svgSize = getSvgCanvasSize(transparentSvg);
+const encoded = svgToDataUrl(transparentSvg);
+    
+pieces.push({
+  id: uid(),
+  type: 'media',
+  name: smiles,
+  src: encoded,
+  x: 100 + pieces.length * 10,
+  y: 100 + pieces.length * 10,
+  w: svgSize.width,
+  h: svgSize.height
+});
+    selected = pieces[pieces.length - 1].id;
+    if (typeof mol.delete === 'function') mol.delete();
+    render();
+    setStatus('Molecule added to canvas.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Invalid SMILES string.');
+  }
 }
 
 function render(){
@@ -379,6 +633,14 @@ function render(){
       img.src = p.src;
       img.alt = p.name || 'piece';
       el.appendChild(img);
+
+      el.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        selected = p.id;
+        render();
+        showMediaContextMenu(e.clientX, e.clientY, p.id);
+      });
     }
 
     const handle = document.createElement('div');
@@ -387,6 +649,7 @@ function render(){
 
     dragTarget.addEventListener('pointerdown', e => {
       if (e.target === handle || e.target === deleteHandle) return;
+      hideMediaContextMenu();
       selected = p.id;
       const startX = e.clientX, startY = e.clientY;
       const ox = p.x, oy = p.y;
@@ -407,6 +670,7 @@ function render(){
 
     handle.addEventListener('pointerdown', e => {
       e.stopPropagation();
+      hideMediaContextMenu();
       selected = p.id;
       const startX = e.clientX, startY = e.clientY;
       const ow = p.w, oh = p.h;
@@ -424,6 +688,7 @@ function render(){
     if (!isText) {
       el.addEventListener('click', e => {
         e.stopPropagation();
+        hideMediaContextMenu();
         if (selected !== p.id) {
           selected = p.id;
           render();
@@ -470,6 +735,7 @@ function loadSessionUrl(){
     const data = JSON.parse(base64ToUtf8(cleaned));
     pieces = Array.isArray(data) ? data : (data.pieces || []);
     selected = null;
+    hideMediaContextMenu();
     render();
     setStatus('Loaded local session URL.');
   } catch (e) {
@@ -491,6 +757,7 @@ async function loadExternalJson(url = externalUrlInput.value){
     const data = await res.json();
     pieces = Array.isArray(data) ? data : (data.pieces || []);
     selected = null;
+    hideMediaContextMenu();
     externalUrlInput.value = trimmed;
     render();
     setStatus('Loaded external JSON.');
@@ -518,8 +785,8 @@ async function getExistingSha(owner, repo, branch, path, token){
 async function saveSessionToGitHub(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const branch = githubBranchInput.value.trim() || 'chem';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'data';
   const token = githubTokenInput.value.trim();
   const sessionName = safeName(sessionNameInput.value);
   const path = `${folder}/${sessionName}.json`;
@@ -580,8 +847,8 @@ function populateGitHubCanvases(items) {
 async function refreshGitHubCanvases(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const branch = githubBranchInput.value.trim() || 'chem';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'data';
   const token = githubTokenInput.value.trim();
 
   if (!owner || !repo) {
@@ -648,9 +915,19 @@ async function loadFromQueryParam(){
   return false;
 }
 
+saveMediaButton.addEventListener('click', () => {
+  const piece = pieces.find(item => item.id === contextMenuPieceId);
+  savePieceMedia(piece);
+  hideMediaContextMenu();
+});
+
 sidebarToggle.addEventListener('click', toggleSidebar);
+document.addEventListener('click', hideMediaContextMenu);
+document.addEventListener('scroll', hideMediaContextMenu, true);
+window.addEventListener('resize', hideMediaContextMenu);
 
 (async function boot(){
+  initializeRDKit();
   if (location.hash.startsWith('#json=')) {
     loadSessionUrl();
   } else {
