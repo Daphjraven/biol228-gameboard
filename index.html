@@ -121,10 +121,10 @@ label { display:block; margin-top:10px; font-size:14px; }
 <body>
 
 <div id="sidebar">
-  <h3>Import</h3>
+  <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
 
-  <h3>Local Session</h3>
+  <h3>Local Session Save</h3>
   <button type="button" onclick="saveSessionUrl()">Generate URL</button>
   <textarea id="urlBox" placeholder="Local session URL appears here..."></textarea>
   <button type="button" onclick="copyUrl()">Copy URL</button>
@@ -152,8 +152,8 @@ label { display:block; margin-top:10px; font-size:14px; }
   <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
   <button type="button" onclick="refreshGitHubCanvases()">Refresh GitHub Canvases</button>
 
-  <label for="githubCanvaSelect">Saved Canvases in GitHub folder</label>
-  <select id="githubCanvaSelect">
+  <label for="githubCanvasesSelect">Saved Canvases in GitHub folder</label>
+  <select id="githubCanvasesSelect">
     <option value="">Choose a saved canvas...</option>
   </select>
   <button type="button" onclick="loadSelectedGitHubCanvas()">Load Selected GitHub Canvas</button>
@@ -194,7 +194,7 @@ const githubRepoInput = document.getElementById('githubRepoInput');
 const githubBranchInput = document.getElementById('githubBranchInput');
 const githubFolderInput = document.getElementById('githubFolderInput');
 const githubTokenInput = document.getElementById('githubTokenInput');
-const githubCanvaSelect = document.getElementById('githubCanvaSelect');
+const githubCanvasesSelect = document.getElementById('githubCanvasesSelect');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const toggleChevron = document.getElementById('toggleChevron');
 
@@ -439,12 +439,12 @@ async function saveSessionToGitHub(){
 }
 
 function populateGitHubCanvases(items) {
-  githubCanvaSelect.innerHTML = '<option value="">Choose a saved canvas...</option>';
+  githubCanvasesSelect.innerHTML = '<option value="">Choose a saved canvas...</option>';
   items.forEach(item => {
     const option = document.createElement('option');
     option.value = item.url;
     option.textContent = item.label;
-    githubCanvaSelect.appendChild(option);
+    githubCanvasesSelect.appendChild(option);
   });
 }
 
@@ -489,7 +489,7 @@ async function refreshGitHubCanvases(){
 }
 
 async function loadSelectedGitHubCanvas(){
-  const selectedUrl = githubCanvaSelect.value;
+  const selectedUrl = githubCanvasesSelect.value;
   if (!selectedUrl) {
     setStatus('Choose a saved GitHub canvas first.');
     return;
