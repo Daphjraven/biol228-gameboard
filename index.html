@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Board Game Sandbox</title>
+<title>Impression Canvas</title>
 <style>
 :root {
   --grid-size: 24px;
@@ -132,13 +132,13 @@ label { display:block; margin-top:10px; font-size:14px; }
 
   <h3>GitHub Session Save</h3>
   <label for="sessionNameInput">Session file name</label>
-  <input type="text" id="sessionNameInput" placeholder="demo-board">
+  <input type="text" id="sessionNameInput" placeholder="demo-canvas">
 
   <label for="githubOwnerInput">GitHub owner</label>
   <input type="text" id="githubOwnerInput" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" placeholder="biol228-gameboard">
+  <input type="text" id="githubRepoInput" placeholder="impression-canvas">
 
   <label for="githubBranchInput">Branch</label>
   <input type="text" id="githubBranchInput" value="main" placeholder="main">
@@ -150,13 +150,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="password" id="githubTokenInput" placeholder="'repo' field enabled + write 'access' for 'Note' field">
 
   <button type="button" onclick="saveSessionToGitHub()">Save Session to GitHub</button>
-  <button type="button" onclick="refreshGitHubBoards()">Refresh GitHub Boards</button>
+  <button type="button" onclick="refreshGitHubBoards()">Refresh GitHub Canva</button>
 
-  <label for="githubBoardsSelect">Saved boards in GitHub folder</label>
+  <label for="githubBoardsSelect">Saved Canva in GitHub folder</label>
   <select id="githubBoardsSelect">
-    <option value="">Choose a saved board...</option>
+    <option value="">Choose a saved canvas...</option>
   </select>
-  <button type="button" onclick="loadSelectedGitHubBoard()">Load Selected GitHub Board</button>
+  <button type="button" onclick="loadSelectedGitHubBoard()">Load Selected GitHub Canvas</button>
   <button type="button" onclick="makeEmbedLink()">Make Notion Embed Link</button>
 
   <label for="externalUrlInput">External JSON URL</label>
