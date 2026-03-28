@@ -397,6 +397,53 @@ function sanitizeSvgForTransparency(svgText) {
 
   return cleaned;
 }
+
+function getSvgCanvasSize(svgText) {
+  const fallback = { width: 220, height: 160 };
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return fallback;
+
+    const widthAttr = svg.getAttribute('width');
+    const heightAttr = svg.getAttribute('height');
+    const viewBoxAttr = svg.getAttribute('viewBox');
+
+    function parseDim(value) {
+      if (!value) return null;
+      const match = String(value).match(/([0-9]*\.?[0-9]+)/);
+      return match ? Number(match[1]) : null;
+    }
+
+    let width = parseDim(widthAttr);
+    let height = parseDim(heightAttr);
+
+    if ((!width || !height) && viewBoxAttr) {
+      const parts = viewBoxAttr.trim().split(/\s+/).map(Number);
+      if (parts.length === 4 && parts.every(n => Number.isFinite(n))) {
+        width = width || parts[2];
+        height = height || parts[3];
+      }
+    }
+
+    if (!width || !height) return fallback;
+
+    const maxWidth = 260;
+    const maxHeight = 180;
+    const scale = Math.min(maxWidth / width, maxHeight / height, 1.8);
+
+    return {
+      width: Math.max(120, Math.round(width * scale)),
+      height: Math.max(90, Math.round(height * scale))
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+  
 function svgToDataUrl(svgText) {
   const cleaned = sanitizeSvgForTransparency(svgText);
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(cleaned);
@@ -510,18 +557,21 @@ function addMolecule(){
   try {
     const mol = RDKitModuleRef.get_mol(smiles);
     if (!mol) throw new Error('Could not parse SMILES');
-    const rawSvg = mol.get_svg();
-    const encoded = svgToDataUrl(rawSvg);
-    pieces.push({
-      id: uid(),
-      type: 'media',
-      name: smiles,
-      src: encoded,
-      x: 100 + pieces.length * 10,
-      y: 100 + pieces.length * 10,
-      w: 220,
-      h: 160
-    });
+const rawSvg = mol.get_svg();
+const transparentSvg = sanitizeSvgForTransparency(rawSvg);
+const svgSize = getSvgCanvasSize(transparentSvg);
+const encoded = svgToDataUrl(transparentSvg);
+
+pieces.push({
+  id: uid(),
+  type: 'media',
+  name: smiles,
+  src: encoded,
+  x: 100 + pieces.length * 10,
+  y: 100 + pieces.length * 10,
+  w: svgSize.width,
+  h: svgSize.height
+});
     selected = pieces[pieces.length - 1].id;
     if (typeof mol.delete === 'function') mol.delete();
     render();
