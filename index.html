@@ -669,8 +669,8 @@ async function getExistingSha(owner, repo, branch, path, token){
 async function saveSessionToGitHub(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const branch = githubBranchInput.value.trim() || 'chem';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'data';
   const token = githubTokenInput.value.trim();
   const sessionName = safeName(sessionNameInput.value);
   const path = `${folder}/${sessionName}.json`;
