@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Impression Canvas</title>
+<title>Impressionists' Canvas</title>
 <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
 <style>
 :root {
@@ -213,7 +213,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <button type="button" onclick="addSvgContent()">Add SVG Content</button>
   <button type="button" onclick="addTextBox()">Add Text Box</button>
 
-  <h3>Chem Renderer</h3>
+  <h3>ChemRender</h3>
   <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
   <button type="button" onclick="addMolecule()">Add Molecule</button>
 
@@ -228,13 +228,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="text" id="sessionNameInput" placeholder="demo-canvas">
 
   <label for="githubOwnerInput">GitHub owner</label>
-  <input type="text" id="githubOwnerInput" placeholder="daphjraven">
+  <input type="text" id="githubOwnerInput" value="daphjraven" placeholder="daphjraven">
 
   <label for="githubRepoInput">Repository</label>
-  <input type="text" id="githubRepoInput" placeholder="impression-canvas">
+  <input type="text" id="githubRepoInput" placeholder="impressionists-canvas">
 
   <label for="githubBranchInput">Branch</label>
-  <input type="text" id="githubBranchInput" value="main" placeholder="main">
+  <input type="text" id="githubBranchInput" value="chem" placeholder="main">
 
   <label for="githubFolderInput">Folder path in repo</label>
   <input type="text" id="githubFolderInput" value="data" placeholder="data">
@@ -495,10 +495,10 @@ function savePieceMedia(piece) {
 async function initializeRDKit() {
   try {
     RDKitModuleRef = await initRDKitModule();
-    setStatus('Chem renderer ready.');
+    setStatus('ChemRender ready.');
   } catch (error) {
     console.error(error);
-    setStatus('Chem renderer could not load.');
+    setStatus('ChemRender could not load.');
   }
 }
 
@@ -563,7 +563,7 @@ function addMolecule(){
   }
 
   if (!RDKitModuleRef) {
-    setStatus('Chem renderer is still loading...');
+    setStatus('ChemRender is still loading...');
     return;
   }
 
@@ -803,8 +803,8 @@ async function getExistingSha(owner, repo, branch, path, token){
 async function saveSessionToGitHub(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const branch = githubBranchInput.value.trim() || 'chem';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'data';
   const token = githubTokenInput.value.trim();
   const sessionName = safeName(sessionNameInput.value);
   const path = `${folder}/${sessionName}.json`;
@@ -865,8 +865,8 @@ function populateGitHubCanvases(items) {
 async function refreshGitHubCanvases(){
   const owner = githubOwnerInput.value.trim();
   const repo = githubRepoInput.value.trim();
-  const branch = githubBranchInput.value.trim() || 'main';
-  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'sessions';
+  const branch = githubBranchInput.value.trim() || 'chem';
+  const folder = githubFolderInput.value.trim().replace(/^\/+|\/+$/g, '') || 'data';
   const token = githubTokenInput.value.trim();
 
   if (!owner || !repo) {
