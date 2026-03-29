@@ -802,7 +802,7 @@ function addTextBox() {
       y: 140 + pieces.length * 10,
       w: 280,
       h: 180,
-      showHeader: true,
+      showHeader: false,
       styles: {
         backgroundColor: '#ffffff',
         textColor: '#000000',
@@ -1071,7 +1071,8 @@ function syncCustomTextControls() {
 
   if (!piece) {
     customTextControls.style.display = 'none';
-    customShowHeader.checked = true;
+    customShowHeader.checked = false;
+    customBgOpacity.value = 0;
     return;
   }
 
@@ -1419,11 +1420,22 @@ function render() {
   }
 
   function move(ev) {
-    p.x = clamp(ox + (ev.clientX - startX), 0, surface.clientWidth - p.w);
-    p.y = clamp(oy + (ev.clientY - startY), 0, surface.clientHeight - p.h);
-    el.style.left = p.x + 'px';
-    el.style.top = p.y + 'px';
+  p.w = Math.max((isMath || isQuestionMath) ? 260 : ((isText || isCustomText) ? 140 : 30), ow + (ev.clientX - startX));
+  p.h = Math.max((isMath || isQuestionMath) ? 170 : ((isText || isCustomText) ? 72 : 30), oh + (ev.clientY - startY));
+  el.style.width = p.w + 'px';
+  el.style.height = p.h + 'px';
+
+  if (isCustomText) {
+    p.styles = p.styles || {};
+    const scaledSize = Math.round(Math.min(p.w / 10, p.h / 4));
+    p.styles.fontSize = clamp(scaledSize, 10, 48);
+
+    const content = el.querySelector('.custom-textbox-content');
+    if (content) {
+      content.style.fontSize = p.styles.fontSize + 'px';
+    }
   }
+}
 
   function up(ev) {
     window.removeEventListener('pointermove', move);
