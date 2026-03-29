@@ -353,7 +353,7 @@ label { display:block; margin-top:10px; font-size:14px; }
   <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
 
-  <h3>MathRender</h3>
+  <h3>TextRender</h3>
 
 <div id="customTextControls" style="display:none; margin-top:12px; padding:10px; background:white; border:1px solid #d9e0ea; border-radius:8px;">
   <h4 style="margin:0 0 8px 0;">Custom Text Box Settings</h4>
@@ -396,14 +396,16 @@ label { display:block; margin-top:10px; font-size:14px; }
   </select>
 </div>
   
-  <label for="textBoxTypeSelect">Text box version</label>
 <select id="textBoxTypeSelect">
   <option value="basic">Basic text box</option>
   <option value="custom">Custom text box</option>
 </select>
-
+  <label for="textBoxTypeSelect">Text box version</label>
+  
 <button type="button" onclick="addTextBox()">Add Text Block</button>
 
+<h3>MathRender</h3>
+  
   <button type="button" onclick="addMathBlock()">Add Basic Math Block</button>
   <button type="button" onclick="addQuestionMathBlock()">Add Question Math Block</button>
 
@@ -1235,6 +1237,58 @@ function render() {
 
   el.appendChild(content);
 
+} else if (isMath) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'mathblock-dragbar';
+  dragbar.textContent = 'Drag basic math block';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const body = document.createElement('div');
+  body.className = 'mathblock-body';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mathblock-prompt';
+  wrapper.textContent = (p.promptText || 'Practice:') + ' ';
+
+  const inlineMath = document.createElement('math-field');
+  inlineMath.setAttribute('read-only', 'true');
+  inlineMath.setAttribute('virtual-keyboard-mode', 'manual');
+  inlineMath.style.border = 'none';
+  inlineMath.style.background = 'transparent';
+  inlineMath.style.padding = '0';
+  inlineMath.style.display = 'inline-block';
+  inlineMath.style.fontSize = '14px';
+  inlineMath.value = p.promptLatex || '';
+
+  wrapper.appendChild(inlineMath);
+  body.appendChild(wrapper);
+
+  const field = document.createElement('math-field');
+  field.setAttribute('virtual-keyboard-mode', 'manual');
+  field.value = p.value || '';
+  body.appendChild(field);
+
+  const preview = document.createElement('div');
+  preview.className = 'mathblock-preview';
+  preview.textContent = p.value || 'Preview will appear here.';
+  body.appendChild(preview);
+
+  field.addEventListener('input', () => {
+    p.value = field.value;
+    preview.textContent = p.value || 'Preview will appear here.';
+  });
+
+  field.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
+
+  el.appendChild(body);
+    
 } else if (isQuestionMath) {
     const dragbar = document.createElement('div');
     dragbar.className = 'mathblock-dragbar';
