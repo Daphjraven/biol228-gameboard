@@ -395,6 +395,11 @@ label { display:block; margin-top:10px; font-size:14px; }
     <option value="center">center</option>
     <option value="right">right</option>
   </select>
+
+  <label>
+    <input type="checkbox" id="customShowHeader" checked>
+    Show header (drag bar)
+  </label>
 </div>
 
 <label for="textBoxTypeSelect">Text Options</label> 
@@ -498,6 +503,7 @@ const mediaContextMenu = document.getElementById('mediaContextMenu');
 const questionBankUrlInput = document.getElementById('questionBankUrlInput');
 const saveMediaButton = document.getElementById('saveMediaButton');
 const textBoxTypeSelect = document.getElementById('textBoxTypeSelect');
+const customShowHeader = document.getElementById('customShowHeader');
 
 const customTextControls = document.getElementById('customTextControls');
 const customBgColor = document.getElementById('customBgColor');
@@ -796,6 +802,7 @@ function addTextBox() {
       y: 140 + pieces.length * 10,
       w: 280,
       h: 180,
+      showHeader: true,
       styles: {
         backgroundColor: '#ffffff',
         textColor: '#000000',
@@ -1061,7 +1068,7 @@ function getSelectedCustomTextPiece() {
 
 function syncCustomTextControls() {
   const piece = getSelectedCustomTextPiece();
-
+  customShowHeader.checked = piece.showHeader !== false;
   if (!piece) {
     customTextControls.style.display = 'none';
     return;
@@ -1089,7 +1096,8 @@ function wireCustomTextControlEvents() {
     customFontSize,
     customFontWeight,
     customFontStyle,
-    customTextAlign
+    customTextAlign,
+    customShowHeader,
   ].forEach(control => {
     control.addEventListener('input', updateSelectedCustomTextStyles);
     control.addEventListener('change', updateSelectedCustomTextStyles);
@@ -1110,6 +1118,7 @@ function updateSelectedCustomTextStyles() {
   piece.styles.fontWeight = customFontWeight.value;
   piece.styles.fontStyle = customFontStyle.value;
   piece.styles.textAlign = customTextAlign.value;
+  piece.showHeader = customShowHeader.checked;
 
   render();
 }
@@ -1184,11 +1193,17 @@ function render() {
     el.appendChild(content);
 
 } else if (isCustomText) {
+let dragTargetLocal = el;
+
+if (p.showHeader !== false) {
   const dragbar = document.createElement('div');
   dragbar.className = 'custom-textbox-dragbar';
   dragbar.textContent = 'Drag custom text box';
   el.appendChild(dragbar);
-  dragTarget = dragbar;
+  dragTargetLocal = dragbar;
+}
+
+dragTarget = dragTargetLocal;
 
   const styles = p.styles || {
     backgroundColor: '#ffffff',
