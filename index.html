@@ -345,13 +345,55 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
 
   <h3>MathRender</h3>
+
+<div id="customTextControls" style="display:none; margin-top:12px; padding:10px; background:white; border:1px solid #d9e0ea; border-radius:8px;">
+  <h4 style="margin:0 0 8px 0;">Custom Text Box Settings</h4>
+
+  <label for="customBgColor">Background color</label>
+  <input type="color" id="customBgColor" value="#ffffff">
+
+  <label for="customTextColor">Text color</label>
+  <input type="color" id="customTextColor" value="#000000">
+
+  <label for="customBorderColor">Border color</label>
+  <input type="color" id="customBorderColor" value="#d9e0ea">
+
+  <label for="customBgOpacity">Background opacity</label>
+  <input type="range" id="customBgOpacity" min="0" max="1" step="0.05" value="0.9">
+
+  <label for="customFontSize">Font size</label>
+  <input type="number" id="customFontSize" min="10" max="48" value="18">
+
+  <label for="customFontWeight">Font weight</label>
+  <select id="customFontWeight">
+    <option value="300">300</option>
+    <option value="400" selected>400</option>
+    <option value="500">500</option>
+    <option value="600">600</option>
+    <option value="700">700</option>
+  </select>
+
+  <label for="customFontStyle">Font style</label>
+  <select id="customFontStyle">
+    <option value="normal" selected>normal</option>
+    <option value="italic">italic</option>
+  </select>
+
+  <label for="customTextAlign">Text align</label>
+  <select id="customTextAlign">
+    <option value="left" selected>left</option>
+    <option value="center">center</option>
+    <option value="right">right</option>
+  </select>
+</div>
+  
   <label for="textBoxTypeSelect">Text box version</label>
 <select id="textBoxTypeSelect">
   <option value="basic">Basic text box</option>
   <option value="custom">Custom text box</option>
 </select>
 
-<button type="button" onclick="addTextBox()">Add Text Box</button>
+<button type="button" onclick="addTextBox()">Add Text Block</button>
 
   <button type="button" onclick="addMathBlock()">Add Basic Math Block</button>
   <button type="button" onclick="addQuestionMathBlock()">Add Question Math Block</button>
@@ -445,6 +487,16 @@ const mediaContextMenu = document.getElementById('mediaContextMenu');
 const questionBankUrlInput = document.getElementById('questionBankUrlInput');
 const saveMediaButton = document.getElementById('saveMediaButton');
 const textBoxTypeSelect = document.getElementById('textBoxTypeSelect');
+
+const customTextControls = document.getElementById('customTextControls');
+const customBgColor = document.getElementById('customBgColor');
+const customTextColor = document.getElementById('customTextColor');
+const customBorderColor = document.getElementById('customBorderColor');
+const customBgOpacity = document.getElementById('customBgOpacity');
+const customFontSize = document.getElementById('customFontSize');
+const customFontWeight = document.getElementById('customFontWeight');
+const customFontStyle = document.getElementById('customFontStyle');
+const customTextAlign = document.getElementById('customTextAlign'); 
   
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
@@ -1025,6 +1077,74 @@ function addMechanismArrow() {
   render();
 }
 
+function hexToRgba(hex, alpha) {
+  const clean = hex.replace('#', '');
+  const bigint = parseInt(clean, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getSelectedCustomTextPiece() {
+  return pieces.find(p => p.id === selected && p.type === 'custom-text') || null;
+}
+
+function syncCustomTextControls() {
+  const piece = getSelectedCustomTextPiece();
+
+  if (!piece) {
+    customTextControls.style.display = 'none';
+    return;
+  }
+
+  customTextControls.style.display = 'block';
+
+  const styles = piece.styles || {};
+  customBgColor.value = styles.backgroundColor || '#ffffff';
+  customTextColor.value = styles.textColor || '#000000';
+  customBorderColor.value = styles.borderColor || '#d9e0ea';
+  customBgOpacity.value = styles.opacity ?? 0.9;
+  customFontSize.value = styles.fontSize || 18;
+  customFontWeight.value = styles.fontWeight || '400';
+  customFontStyle.value = styles.fontStyle || 'normal';
+  customTextAlign.value = styles.textAlign || 'left';
+}
+
+function wireCustomTextControlEvents() {
+  [
+    customBgColor,
+    customTextColor,
+    customBorderColor,
+    customBgOpacity,
+    customFontSize,
+    customFontWeight,
+    customFontStyle,
+    customTextAlign
+  ].forEach(control => {
+    control.addEventListener('input', updateSelectedCustomTextStyles);
+    control.addEventListener('change', updateSelectedCustomTextStyles);
+  });
+}
+
+function updateSelectedCustomTextStyles() {
+  const piece = getSelectedCustomTextPiece();
+  if (!piece) return;
+
+  piece.styles = piece.styles || {};
+
+  piece.styles.backgroundColor = customBgColor.value;
+  piece.styles.textColor = customTextColor.value;
+  piece.styles.borderColor = customBorderColor.value;
+  piece.styles.opacity = Number(customBgOpacity.value);
+  piece.styles.fontSize = Number(customFontSize.value) || 18;
+  piece.styles.fontWeight = customFontWeight.value;
+  piece.styles.fontStyle = customFontStyle.value;
+  piece.styles.textAlign = customTextAlign.value;
+
+  render();
+}
+  
 function render() {
   surface.innerHTML = '';
 
@@ -1091,15 +1211,12 @@ function render() {
       });
       el.appendChild(content);
 
-    } else if (isCustomText) {
+  } else if (isCustomText) {
   const dragbar = document.createElement('div');
   dragbar.className = 'custom-textbox-dragbar';
   dragbar.textContent = 'Drag custom text box';
   el.appendChild(dragbar);
   dragTarget = dragbar;
-
-  const toolbar = document.createElement('div');
-  toolbar.className = 'custom-textbox-toolbar';
 
   const styles = p.styles || {
     backgroundColor: '#ffffff',
@@ -1113,123 +1230,37 @@ function render() {
   };
   p.styles = styles;
 
-  const bgLabel = document.createElement('label');
-  bgLabel.textContent = 'BG';
-  const bgInput = document.createElement('input');
-  bgInput.type = 'color';
-  bgInput.value = styles.backgroundColor || '#ffffff';
-  bgInput.addEventListener('input', () => {
-    styles.backgroundColor = bgInput.value;
-    el.style.background = styles.backgroundColor;
-  });
-  bgLabel.appendChild(bgInput);
-  toolbar.appendChild(bgLabel);
+  const content = document.createElement('div');
+  content.className = 'custom-textbox-content';
+  content.contentEditable = 'true';
+  content.spellcheck = false;
+  content.textContent = p.text || '';
 
-  const textLabel = document.createElement('label');
-  textLabel.textContent = 'Text';
-  const textInput = document.createElement('input');
-  textInput.type = 'color';
-  textInput.value = styles.textColor || '#000000';
-  textInput.addEventListener('input', () => {
-    styles.textColor = textInput.value;
-    content.style.color = styles.textColor;
-  });
-  textLabel.appendChild(textInput);
-  toolbar.appendChild(textLabel);
+  content.style.color = styles.textColor || '#000000';
+  content.style.fontSize = (styles.fontSize || 18) + 'px';
+  content.style.fontWeight = styles.fontWeight || '400';
+  content.style.fontStyle = styles.fontStyle || 'normal';
+  content.style.textAlign = styles.textAlign || 'left';
 
-  const borderLabel = document.createElement('label');
-  borderLabel.textContent = 'Border';
-  const borderInput = document.createElement('input');
-  borderInput.type = 'color';
-  borderInput.value = styles.borderColor || '#d9e0ea';
-  borderInput.addEventListener('input', () => {
-    styles.borderColor = borderInput.value;
-    el.style.borderColor = styles.borderColor;
-  });
-  borderLabel.appendChild(borderInput);
-  toolbar.appendChild(borderLabel);
+  el.style.background = hexToRgba(styles.backgroundColor || '#ffffff', styles.opacity ?? 0.9);
+  el.style.borderColor = (p.id === selected)
+    ? 'var(--accent)'
+    : (styles.borderColor || '#d9e0ea');
 
-  const opacityLabel = document.createElement('label');
-  opacityLabel.textContent = 'Opacity';
-  const opacityInput = document.createElement('input');
-  opacityInput.type = 'range';
-  opacityInput.min = '0.1';
-  opacityInput.max = '1';
-  opacityInput.step = '0.05';
-  opacityInput.value = styles.opacity ?? 0.9;
-  opacityInput.addEventListener('input', () => {
-    styles.opacity = Number(opacityInput.value);
-    el.style.opacity = styles.opacity;
+  content.addEventListener('input', () => {
+    p.text = content.textContent;
   });
-  opacityLabel.appendChild(opacityInput);
-  toolbar.appendChild(opacityLabel);
 
-  const sizeLabel = document.createElement('label');
-  sizeLabel.textContent = 'Size';
-  const sizeInput = document.createElement('input');
-  sizeInput.type = 'number';
-  sizeInput.min = '10';
-  sizeInput.max = '48';
-  sizeInput.value = styles.fontSize || 18;
-  sizeInput.addEventListener('input', () => {
-    styles.fontSize = Number(sizeInput.value) || 18;
-    content.style.fontSize = styles.fontSize + 'px';
+  content.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
   });
-  sizeLabel.appendChild(sizeInput);
-  toolbar.appendChild(sizeLabel);
 
-  const weightLabel = document.createElement('label');
-  weightLabel.textContent = 'Weight';
-  const weightSelect = document.createElement('select');
-  ['300', '400', '500', '600', '700'].forEach(val => {
-    const option = document.createElement('option');
-    option.value = val;
-    option.textContent = val;
-    if ((styles.fontWeight || '400') === val) option.selected = true;
-    weightSelect.appendChild(option);
-  });
-  weightSelect.addEventListener('change', () => {
-    styles.fontWeight = weightSelect.value;
-    content.style.fontWeight = styles.fontWeight;
-  });
-  weightLabel.appendChild(weightSelect);
-  toolbar.appendChild(weightLabel);
-
-  const styleLabel = document.createElement('label');
-  styleLabel.textContent = 'Style';
-  const styleSelect = document.createElement('select');
-  ['normal', 'italic'].forEach(val => {
-    const option = document.createElement('option');
-    option.value = val;
-    option.textContent = val;
-    if ((styles.fontStyle || 'normal') === val) option.selected = true;
-    styleSelect.appendChild(option);
-  });
-  styleSelect.addEventListener('change', () => {
-    styles.fontStyle = styleSelect.value;
-    content.style.fontStyle = styles.fontStyle;
-  });
-  styleLabel.appendChild(styleSelect);
-  toolbar.appendChild(styleLabel);
-
-  const alignLabel = document.createElement('label');
-  alignLabel.textContent = 'Align';
-  const alignSelect = document.createElement('select');
-  ['left', 'center', 'right'].forEach(val => {
-    const option = document.createElement('option');
-    option.value = val;
-    option.textContent = val;
-    if ((styles.textAlign || 'left') === val) option.selected = true;
-    alignSelect.appendChild(option);
-  });
-  alignSelect.addEventListener('change', () => {
-    styles.textAlign = alignSelect.value;
-    content.style.textAlign = styles.textAlign;
-  });
-  alignLabel.appendChild(alignSelect);
-  toolbar.appendChild(alignLabel);
-
-  el.appendChild(toolbar);
+  el.appendChild(content);
+}
 
   const content = document.createElement('div');
   content.className = 'custom-textbox-content';
@@ -1476,6 +1507,8 @@ function render() {
 
     surface.appendChild(el);
   });
+
+  syncCustomTextControls();
 }
 
 function saveSessionUrl(){
@@ -1699,6 +1732,7 @@ window.addEventListener('resize', hideMediaContextMenu);
 
 (async function boot(){
   initializeRDKit();
+  wireCustomTextControlEvents();
   if (location.hash.startsWith('#json=')) {
     loadSessionUrl();
   } else {
