@@ -213,6 +213,7 @@ body.sidebar-collapsed #sidebar > * {
 }
 
 .custom-textbox {
+  position: absolute;
   background: rgba(255,255,255,0.9);
   min-width: 180px;
   min-height: 120px;
@@ -395,13 +396,12 @@ label { display:block; margin-top:10px; font-size:14px; }
     <option value="right">right</option>
   </select>
 </div>
-  
+
+<label for="textBoxTypeSelect">Text Options</label> 
 <select id="textBoxTypeSelect">
-  <option value="basic">Basic text box</option>
-  <option value="custom">Custom text box</option>
-</select>
-  <label for="textBoxTypeSelect">Text box version</label>
-  
+  <option value="basic">Basic Text Block</option>
+  <option value="custom">Custom Text Block</option>
+</select>  
 <button type="button" onclick="addTextBox()">Add Text Block</button>
 
 <h3>MathRender</h3>
@@ -419,8 +419,8 @@ label { display:block; margin-top:10px; font-size:14px; }
   <button type="button" onclick="addMolecule()">Add Molecule</button>
   <select id="mechanismArrowSelect">
     <option value="reaction">Reaction arrow →</option>
-    <option value="equilibrium">Equilibrium ⇌</option>
-    <option value="resonance">Resonance ↔</option>
+    <option value="equilibrium">Equilibrium Arrow ⇌</option>
+    <option value="resonance">Resonance Arrow ↔</option>
     <option value="curved">Curved electron arrow</option>
   </select>
   <button type="button" onclick="addMechanismArrow()">Add Mechanism Arrow</button>
