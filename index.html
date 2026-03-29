@@ -222,6 +222,14 @@ body.sidebar-collapsed #sidebar > * {
   border: 2px solid #d9e0ea;
 }
 
+.custom-textbox {
+  cursor: move;
+}
+
+.custom-textbox-content {
+  cursor: text;
+}
+
 .custom-textbox.selected {
   border-color: var(--accent) !important;
 }
@@ -1198,7 +1206,7 @@ function render() {
 
 } else if (isCustomText) {
   let dragbar = null;
-  dragTarget = el;
+  dragTarget = el; // default: drag from whole box
 
   if (p.showHeader !== false) {
     dragbar = document.createElement('div');
@@ -1251,10 +1259,6 @@ function render() {
       selected = p.id;
       render();
     }
-  });
-
-  content.addEventListener('pointerdown', e => {
-    e.stopPropagation();
   });
 
   el.appendChild(content);
