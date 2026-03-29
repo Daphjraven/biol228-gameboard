@@ -212,6 +212,66 @@ body.sidebar-collapsed #sidebar > * {
   display:flex;
 }
 
+.custom-textbox {
+  background: rgba(255,255,255,0.9);
+  min-width: 180px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #d9e0ea;
+}
+
+.custom-textbox.selected {
+  border-color: var(--accent) !important;
+}
+
+.custom-textbox-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: #f3f6fb;
+  border-bottom: 1px solid #d9e0ea;
+  align-items: center;
+}
+
+.custom-textbox-toolbar label {
+  margin: 0;
+  font-size: 11px;
+  color: #566;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.custom-textbox-toolbar input,
+.custom-textbox-toolbar select {
+  margin: 0;
+  padding: 4px 6px;
+  width: auto;
+  font-size: 12px;
+}
+
+.custom-textbox-dragbar {
+  padding: 6px 8px;
+  background: #eef3fb;
+  border-bottom: 1px solid #d9e0ea;
+  cursor: grab;
+  font-size: 12px;
+  color: #566;
+  user-select: none;
+}
+
+.custom-textbox-content {
+  flex: 1;
+  padding: 10px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow: auto;
+  min-height: 60px;
+}
+
+  
 #mediaContextMenu {
   position:fixed;
   z-index:1000;
@@ -285,7 +345,14 @@ label { display:block; margin-top:10px; font-size:14px; }
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
 
   <h3>MathRender</h3>
-  <button type="button" onclick="addTextBox()">Add Text Block</button>
+  <label for="textBoxTypeSelect">Text box version</label>
+<select id="textBoxTypeSelect">
+  <option value="basic">Basic text box</option>
+  <option value="custom">Custom text box</option>
+</select>
+
+<button type="button" onclick="addTextBox()">Add Text Box</button>
+
   <button type="button" onclick="addMathBlock()">Add Basic Math Block</button>
   <button type="button" onclick="addQuestionMathBlock()">Add Question Math Block</button>
 
@@ -377,7 +444,8 @@ const mechanismArrowSelect = document.getElementById('mechanismArrowSelect');
 const mediaContextMenu = document.getElementById('mediaContextMenu');
 const questionBankUrlInput = document.getElementById('questionBankUrlInput');
 const saveMediaButton = document.getElementById('saveMediaButton');
-
+const textBoxTypeSelect = document.getElementById('textBoxTypeSelect');
+  
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
 const githubRepoInput = document.getElementById('githubRepoInput');
@@ -653,16 +721,41 @@ function addPiece(src, name = 'image') {
   render();
 }
 
-function addTextBox(){
-  pieces.push({
-    id: uid(),
-    type: 'text',
-    text: 'Type here...',
-    x: 140 + pieces.length * 10,
-    y: 140 + pieces.length * 10,
-    w: 220,
-    h: 120
-  });
+function addTextBox() {
+  const boxType = textBoxTypeSelect ? textBoxTypeSelect.value : 'basic';
+
+  if (boxType === 'custom') {
+    pieces.push({
+      id: uid(),
+      type: 'custom-text',
+      text: 'Type here...',
+      x: 140 + pieces.length * 10,
+      y: 140 + pieces.length * 10,
+      w: 280,
+      h: 180,
+      styles: {
+        backgroundColor: '#ffffff',
+        textColor: '#000000',
+        borderColor: '#d9e0ea',
+        opacity: 0.9,
+        fontSize: 18,
+        fontWeight: '400',
+        fontStyle: 'normal',
+        textAlign: 'left'
+      }
+    });
+  } else {
+    pieces.push({
+      id: uid(),
+      type: 'text',
+      text: 'Type here...',
+      x: 140 + pieces.length * 10,
+      y: 140 + pieces.length * 10,
+      w: 220,
+      h: 120
+    });
+  }
+
   selected = pieces[pieces.length - 1].id;
   render();
 }
@@ -937,14 +1030,18 @@ function render() {
 
   pieces.forEach(p => {
     const isText = p.type === 'text';
+    const isCustomText = p.type === 'custom-text';
     const isMath = p.type === 'math';
     const isQuestionMath = p.type === 'question-math';
     const isMedia = p.type === 'media';
 
     const el = document.createElement('div');
     el.className =
-      ((isMath || isQuestionMath) ? 'mathblock' : (isText ? 'textbox' : 'piece')) +
-      (p.id === selected ? ' selected' : '');
+      (
+        (isMath || isQuestionMath) ? 'mathblock' :
+        (isCustomText ? 'custom-textbox' :
+        (isText ? 'textbox' : 'piece'))
+      ) + (p.id === selected ? ' selected' : '');
     el.style.left = p.x + 'px';
     el.style.top = p.y + 'px';
     el.style.width = p.w + 'px';
@@ -956,10 +1053,10 @@ function render() {
     deleteHandle.className = 'delete-handle';
     deleteHandle.setAttribute(
       'aria-label',
-      (isMath || isQuestionMath) ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media')
+      (isMath || isQuestionMath) ? 'Delete math block' : ((isText || isCustomText) ? 'Delete text box' : 'Delete media')
     );
     deleteHandle.title =
-      (isMath || isQuestionMath) ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media');
+      (isMath || isQuestionMath) ? 'Delete math block' : ((isText || isCustomText) ? 'Delete text box' : 'Delete media');
     deleteHandle.textContent = '×';
     deleteHandle.addEventListener('click', e => {
       e.preventDefault();
@@ -994,6 +1091,182 @@ function render() {
       });
       el.appendChild(content);
 
+    } else if (isCustomText) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'custom-textbox-dragbar';
+  dragbar.textContent = 'Drag custom text box';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'custom-textbox-toolbar';
+
+  const styles = p.styles || {
+    backgroundColor: '#ffffff',
+    textColor: '#000000',
+    borderColor: '#d9e0ea',
+    opacity: 0.9,
+    fontSize: 18,
+    fontWeight: '400',
+    fontStyle: 'normal',
+    textAlign: 'left'
+  };
+  p.styles = styles;
+
+  const bgLabel = document.createElement('label');
+  bgLabel.textContent = 'BG';
+  const bgInput = document.createElement('input');
+  bgInput.type = 'color';
+  bgInput.value = styles.backgroundColor || '#ffffff';
+  bgInput.addEventListener('input', () => {
+    styles.backgroundColor = bgInput.value;
+    el.style.background = styles.backgroundColor;
+  });
+  bgLabel.appendChild(bgInput);
+  toolbar.appendChild(bgLabel);
+
+  const textLabel = document.createElement('label');
+  textLabel.textContent = 'Text';
+  const textInput = document.createElement('input');
+  textInput.type = 'color';
+  textInput.value = styles.textColor || '#000000';
+  textInput.addEventListener('input', () => {
+    styles.textColor = textInput.value;
+    content.style.color = styles.textColor;
+  });
+  textLabel.appendChild(textInput);
+  toolbar.appendChild(textLabel);
+
+  const borderLabel = document.createElement('label');
+  borderLabel.textContent = 'Border';
+  const borderInput = document.createElement('input');
+  borderInput.type = 'color';
+  borderInput.value = styles.borderColor || '#d9e0ea';
+  borderInput.addEventListener('input', () => {
+    styles.borderColor = borderInput.value;
+    el.style.borderColor = styles.borderColor;
+  });
+  borderLabel.appendChild(borderInput);
+  toolbar.appendChild(borderLabel);
+
+  const opacityLabel = document.createElement('label');
+  opacityLabel.textContent = 'Opacity';
+  const opacityInput = document.createElement('input');
+  opacityInput.type = 'range';
+  opacityInput.min = '0.1';
+  opacityInput.max = '1';
+  opacityInput.step = '0.05';
+  opacityInput.value = styles.opacity ?? 0.9;
+  opacityInput.addEventListener('input', () => {
+    styles.opacity = Number(opacityInput.value);
+    el.style.opacity = styles.opacity;
+  });
+  opacityLabel.appendChild(opacityInput);
+  toolbar.appendChild(opacityLabel);
+
+  const sizeLabel = document.createElement('label');
+  sizeLabel.textContent = 'Size';
+  const sizeInput = document.createElement('input');
+  sizeInput.type = 'number';
+  sizeInput.min = '10';
+  sizeInput.max = '48';
+  sizeInput.value = styles.fontSize || 18;
+  sizeInput.addEventListener('input', () => {
+    styles.fontSize = Number(sizeInput.value) || 18;
+    content.style.fontSize = styles.fontSize + 'px';
+  });
+  sizeLabel.appendChild(sizeInput);
+  toolbar.appendChild(sizeLabel);
+
+  const weightLabel = document.createElement('label');
+  weightLabel.textContent = 'Weight';
+  const weightSelect = document.createElement('select');
+  ['300', '400', '500', '600', '700'].forEach(val => {
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = val;
+    if ((styles.fontWeight || '400') === val) option.selected = true;
+    weightSelect.appendChild(option);
+  });
+  weightSelect.addEventListener('change', () => {
+    styles.fontWeight = weightSelect.value;
+    content.style.fontWeight = styles.fontWeight;
+  });
+  weightLabel.appendChild(weightSelect);
+  toolbar.appendChild(weightLabel);
+
+  const styleLabel = document.createElement('label');
+  styleLabel.textContent = 'Style';
+  const styleSelect = document.createElement('select');
+  ['normal', 'italic'].forEach(val => {
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = val;
+    if ((styles.fontStyle || 'normal') === val) option.selected = true;
+    styleSelect.appendChild(option);
+  });
+  styleSelect.addEventListener('change', () => {
+    styles.fontStyle = styleSelect.value;
+    content.style.fontStyle = styles.fontStyle;
+  });
+  styleLabel.appendChild(styleSelect);
+  toolbar.appendChild(styleLabel);
+
+  const alignLabel = document.createElement('label');
+  alignLabel.textContent = 'Align';
+  const alignSelect = document.createElement('select');
+  ['left', 'center', 'right'].forEach(val => {
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = val;
+    if ((styles.textAlign || 'left') === val) option.selected = true;
+    alignSelect.appendChild(option);
+  });
+  alignSelect.addEventListener('change', () => {
+    styles.textAlign = alignSelect.value;
+    content.style.textAlign = styles.textAlign;
+  });
+  alignLabel.appendChild(alignSelect);
+  toolbar.appendChild(alignLabel);
+
+  el.appendChild(toolbar);
+
+  const content = document.createElement('div');
+  content.className = 'custom-textbox-content';
+  content.contentEditable = 'true';
+  content.spellcheck = false;
+  content.textContent = p.text || '';
+
+  content.style.color = styles.textColor || '#000000';
+  content.style.fontSize = (styles.fontSize || 18) + 'px';
+  content.style.fontWeight = styles.fontWeight || '400';
+  content.style.fontStyle = styles.fontStyle || 'normal';
+  content.style.textAlign = styles.textAlign || 'left';
+
+  el.style.background = styles.backgroundColor || '#ffffff';
+  el.style.opacity = styles.opacity ?? 0.9;
+  el.style.borderColor = (p.id === selected)
+    ? 'var(--accent)'
+    : (styles.borderColor || '#d9e0ea');
+
+  content.addEventListener('input', () => {
+    p.text = content.textContent;
+  });
+
+  content.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
+
+  toolbar.addEventListener('click', e => {
+    e.stopPropagation();
+  });
+
+  el.appendChild(content);
+    
     } else if (isMath) {
       const dragbar = document.createElement('div');
       dragbar.className = 'mathblock-dragbar';
@@ -1177,8 +1450,8 @@ function render() {
       const oh = p.h;
 
       function move(ev) {
-        p.w = Math.max((isMath || isQuestionMath) ? 260 : (isText ? 140 : 30), ow + (ev.clientX - startX));
-        p.h = Math.max((isMath || isQuestionMath) ? 170 : (isText ? 72 : 30), oh + (ev.clientY - startY));
+        p.w = Math.max((isMath || isQuestionMath) ? 260 : ((isText || isCustomText) ? 140 : 30), ow + (ev.clientX - startX));
+        p.h = Math.max((isMath || isQuestionMath) ? 170 : ((isText || isCustomText) ? 72 : 30), oh + (ev.clientY - startY));
         el.style.width = p.w + 'px';
         el.style.height = p.h + 'px';
       }
