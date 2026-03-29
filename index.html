@@ -162,6 +162,22 @@ body.sidebar-collapsed #sidebar > * {
   color:#223;
 }
 
+.questionmath-actions {
+  display:flex;
+  gap:8px;
+}
+
+.questionmath-actions button {
+  flex:1;
+  margin-top:0;
+}
+
+.questionmath-feedback {
+  min-height:24px;
+  font-size:13px;
+  color:#334;
+}
+
 .resize-handle {
   position:absolute;
   width:12px; height:12px;
@@ -268,7 +284,13 @@ label { display:block; margin-top:10px; font-size:14px; }
   <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
   <button type="button" onclick="addTextBox()">Add Text Box</button>
-  <button type="button" onclick="addMathBlock()">Add Math Block</button>
+  <button type="button" onclick="addMathBlock()">Add Basic Math Block</button>
+  <button type="button" onclick="addQuestionMathBlock()">Add Question Math Block</button>
+
+<label for="questionBankUrlInput">Question bank JSON URL</label>
+<input type="text" id="questionBankUrlInput" placeholder="https://raw.githubusercontent.com/.../question-banks/basic-integrals.json">
+
+<button type="button" onclick="loadQuestionBankFromGitHub()">Load Question Bank</button>
 
   <h3>ChemRender</h3>
   <input type="text" id="smilesInput" placeholder="Enter SMILES (e.g. CCO)">
@@ -351,6 +373,7 @@ const statusBox = document.getElementById('status');
 const smilesInput = document.getElementById('smilesInput');
 const mechanismArrowSelect = document.getElementById('mechanismArrowSelect');
 const mediaContextMenu = document.getElementById('mediaContextMenu');
+const questionBankUrlInput = document.getElementById('questionBankUrlInput');
 const saveMediaButton = document.getElementById('saveMediaButton');
 
 const sessionNameInput = document.getElementById('sessionNameInput');
@@ -365,6 +388,7 @@ const toggleChevron = document.getElementById('toggleChevron');
 
 let pieces = [];
 let selected = null;
+let loadedQuestionBank = [];
 let sidebarCollapsed = false;
 let RDKitModuleRef = null;
 let contextMenuPieceId = null;
@@ -619,6 +643,105 @@ function addMathBlock(){
   render();
 }
 
+async function loadQuestionBankFromGitHub() {
+  const url = (questionBankUrlInput.value || '').trim();
+  if (!url) {
+    setStatus('Paste a question bank JSON URL first.');
+    return;
+  }
+
+  try {
+    setStatus('Loading question bank...');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      throw new Error('Question bank must be a JSON array.');
+    }
+
+    loadedQuestionBank = data;
+    setStatus(`Loaded ${loadedQuestionBank.length} question(s) from question bank.`);
+  } catch (error) {
+    console.error(error);
+    setStatus('Could not load question bank. ' + error.message);
+  }
+}
+
+function getRandomQuestionFromBank() {
+  if (!loadedQuestionBank.length) return null;
+  return loadedQuestionBank[Math.floor(Math.random() * loadedQuestionBank.length)];
+}
+
+function normalizeMathAnswer(value) {
+  return String(value || '')
+    .replace(/\s+/g, '')
+    .replace(/\\,/g, '')
+    .toLowerCase();
+}
+
+function addQuestionMathBlock() {
+  if (!loadedQuestionBank.length) {
+    setStatus('Load a question bank first.');
+    return;
+  }
+
+  const question = getRandomQuestionFromBank();
+  pieces.push({
+    id: uid(),
+    type: 'question-math',
+    questionId: question.id,
+    promptText: question.promptText,
+    promptLatex: question.promptLatex,
+    answerLatex: question.answerLatex,
+    value: '',
+    feedback: 'Enter your answer, then click Check.',
+    x: 180 + pieces.length * 10,
+    y: 180 + pieces.length * 10,
+    w: 360,
+    h: 280
+  });
+
+  selected = pieces[pieces.length - 1].id;
+  render();
+}
+
+function checkQuestionMathBlock(piece) {
+  const student = normalizeMathAnswer(piece.value);
+  const expected = normalizeMathAnswer(piece.answerLatex);
+
+  if (!student) {
+    piece.feedback = 'Enter an answer first.';
+    render();
+    return;
+  }
+
+  if (student === expected) {
+    piece.feedback = 'Correct ✓';
+  } else {
+    piece.feedback = `Not quite. Expected form: ${piece.answerLatex}`;
+  }
+
+  render();
+}
+
+function refreshQuestionMathBlock(piece) {
+  const question = getRandomQuestionFromBank();
+  if (!question) {
+    piece.feedback = 'No question bank loaded.';
+    render();
+    return;
+  }
+
+  piece.questionId = question.id;
+  piece.promptText = question.promptText;
+  piece.promptLatex = question.promptLatex;
+  piece.answerLatex = question.answerLatex;
+  piece.value = '';
+  piece.feedback = 'New question loaded.';
+  render();
+}  
+
 function addMolecule(){
   const smiles = smilesInput.value.trim();
   if (!smiles) {
@@ -713,8 +836,9 @@ function render(){
   pieces.forEach(p => {
     const isText = p.type === 'text';
     const isMath = p.type === 'math';
+    const isQuestionMath = p.type === 'question-math';
     const el = document.createElement('div');
-    el.className = (isMath ? 'mathblock' : (isText ? 'textbox' : 'piece')) + (p.id===selected?' selected':'');
+    el.className = ((isMath || isQuestionMath) ? 'mathblock' : (isText ? 'textbox' : 'piece')) + (p.id===selected?' selected':'');
     el.style.left = p.x+'px';
     el.style.top = p.y+'px';
     el.style.width = p.w+'px';
@@ -724,8 +848,8 @@ function render(){
     const deleteHandle = document.createElement('button');
     deleteHandle.type = 'button';
     deleteHandle.className = 'delete-handle';
-    deleteHandle.setAttribute('aria-label', isMath ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media'));
-    deleteHandle.title = isMath ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media');
+    deleteHandle.setAttribute('aria-label', (isMath || isQuestionMath) ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media'));
+    deleteHandle.title = (isMath || isQuestionMath) ? 'Delete math block' : (isText ? 'Delete text box' : 'Delete media');
     deleteHandle.textContent = '×';
     deleteHandle.addEventListener('click', e => {
       e.preventDefault();
@@ -800,6 +924,72 @@ if (isText) {
 
   el.appendChild(body);
 
+} else if (isQuestionMath) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'mathblock-dragbar';
+  dragbar.textContent = 'Drag question math block';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const body = document.createElement('div');
+  body.className = 'mathblock-body';
+
+  const promptText = document.createElement('div');
+  promptText.className = 'mathblock-prompt';
+  promptText.textContent = p.promptText || 'Solve the question.';
+  body.appendChild(promptText);
+
+  const promptField = document.createElement('math-field');
+  promptField.setAttribute('read-only', 'true');
+  promptField.setAttribute('virtual-keyboard-mode', 'manual');
+  promptField.value = p.promptLatex || '';
+  body.appendChild(promptField);
+
+  const answerField = document.createElement('math-field');
+  answerField.setAttribute('virtual-keyboard-mode', 'manual');
+  answerField.value = p.value || '';
+  answerField.addEventListener('input', () => {
+    p.value = answerField.value;
+  });
+  answerField.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
+  body.appendChild(answerField);
+
+  const actions = document.createElement('div');
+  actions.className = 'questionmath-actions';
+
+  const checkBtn = document.createElement('button');
+  checkBtn.type = 'button';
+  checkBtn.textContent = 'Check';
+  checkBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    checkQuestionMathBlock(p);
+  });
+  actions.appendChild(checkBtn);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.textContent = 'New Question';
+  nextBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    refreshQuestionMathBlock(p);
+  });
+  actions.appendChild(nextBtn);
+
+  body.appendChild(actions);
+
+  const feedback = document.createElement('div');
+  feedback.className = 'questionmath-feedback';
+  feedback.textContent = p.feedback || '';
+  body.appendChild(feedback);
+
+  el.appendChild(body);
+
 } else {
   const img = document.createElement('img');
   img.src = p.src;
@@ -848,8 +1038,8 @@ if (isText) {
       const ow = p.w, oh = p.h;
 
       function move(ev){
-        p.w = Math.max(isMath ? 260 : (isText ? 140 : 30), ow + (ev.clientX - startX));
-        p.h = Math.max(isMath ? 170 : (isText ? 72 : 30), oh + (ev.clientY - startY));
+        p.w = Math.max((isMath || isQuestionMath) ? 260 : (isText ? 140 : 30), ow + (ev.clientX - startX));
+        p.h = Math.max((isMath || isQuestionMath) ? 170 : (isText ? 72 : 30), oh + (ev.clientY - startY));
         render();
       }
       function up(){ window.removeEventListener('pointermove', move); render(); }
@@ -857,7 +1047,7 @@ if (isText) {
       window.addEventListener('pointerup', up, { once:true });
     });
 
-    if (!isText && !isMath) {
+    if (!isText && !isMath && !isQuestionMath) {
       el.addEventListener('click', e => {
         e.stopPropagation();
         hideMediaContextMenu();
@@ -869,11 +1059,10 @@ if (isText) {
     }
 
     el.addEventListener('dblclick', e => {
-      if ((isText && e.target.classList.contains('textbox-content')) || (isMath && (e.target.closest('math-field') || e.target.closest('.mathblock-body')))) return;
-      e.preventDefault();
-      e.stopPropagation();
-      removePiece(p.id);
-    });
+      if (
+        (isText && e.target.classList.contains('textbox-content')) ||
+        ((isMath || isQuestionMath) && (e.target.closest('math-field') || e.target.closest('.mathblock-body')))
+      ) return;
 
     surface.appendChild(el);
   });
