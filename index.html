@@ -1170,61 +1170,39 @@ function render() {
     textAlign: 'left'
   };
   p.styles = styles;
-    
-    } else if (isMath) {
-      const dragbar = document.createElement('div');
-      dragbar.className = 'mathblock-dragbar';
-      dragbar.textContent = 'Drag basic math block';
-      el.appendChild(dragbar);
-      dragTarget = dragbar;
 
-      const body = document.createElement('div');
-      body.className = 'mathblock-body';
+  // ✅ THIS PART WAS MISSING
+  const content = document.createElement('div');
+  content.className = 'custom-textbox-content';
+  content.contentEditable = 'true';
+  content.spellcheck = false;
+  content.textContent = p.text || '';
 
-      const wrapper = document.createElement('div');
-      wrapper.className = 'mathblock-prompt';
+  content.style.color = styles.textColor;
+  content.style.fontSize = styles.fontSize + 'px';
+  content.style.fontWeight = styles.fontWeight;
+  content.style.fontStyle = styles.fontStyle;
+  content.style.textAlign = styles.textAlign;
 
-      // text part
-      wrapper.textContent = (p.promptText || 'Practice:') + ' ';
+  el.style.background = hexToRgba(styles.backgroundColor, styles.opacity);
+  el.style.borderColor = (p.id === selected)
+    ? 'var(--accent)'
+    : styles.borderColor;
 
-      // inline math
-      const inlineMath = document.createElement('math-field');
-      inlineMath.setAttribute('read-only', 'true');
-      inlineMath.setAttribute('virtual-keyboard-mode', 'manual');
-      inlineMath.style.border = 'none';
-      inlineMath.style.background = 'transparent';
-      inlineMath.style.padding = '0';
-      inlineMath.style.display = 'inline-block';
-      inlineMath.value = p.promptLatex || '';
-      inlineMath.style.fontSize = '14px';
+  content.addEventListener('input', () => {
+    p.text = content.textContent;
+  });
 
-      wrapper.appendChild(inlineMath);
-      body.appendChild(wrapper);
+  content.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
 
-      const field = document.createElement('math-field');
-      field.setAttribute('virtual-keyboard-mode', 'manual');
-      field.value = p.value || '';
-      body.appendChild(field);
-
-      const preview = document.createElement('div');
-      preview.className = 'mathblock-preview';
-      preview.textContent = p.value || 'Preview will appear here.';
-      body.appendChild(preview);
-
-      field.addEventListener('input', () => {
-        p.value = field.value;
-        preview.textContent = p.value || 'Preview will appear here.';
-      });
-
-      field.addEventListener('click', e => {
-        e.stopPropagation();
-        if (selected !== p.id) {
-          selected = p.id;
-          render();
-        }
-      });
-
-      el.appendChild(body);
+  el.appendChild(content);
+}
 
     } else if (isQuestionMath) {
       const dragbar = document.createElement('div');
