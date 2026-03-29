@@ -1,0 +1,30 @@
+[
+  {
+    "id": "int-001",
+    "topic": "basic-integrals",
+    "promptText": "Find the indefinite integral.",
+    "promptLatex": "\\int x^2\\,dx",
+    "answerLatex": "\\frac{x^3}{3}+C"
+  },
+  {
+    "id": "int-002",
+    "topic": "basic-integrals",
+    "promptText": "Find the indefinite integral.",
+    "promptLatex": "\\int 4x^3\\,dx",
+    "answerLatex": "x^4+C"
+  },
+  {
+    "id": "int-003",
+    "topic": "basic-integrals",
+    "promptText": "Find the indefinite integral.",
+    "promptLatex": "\\int \\frac{1}{x}\\,dx",
+    "answerLatex": "\\ln\\left|x\\right|+C"
+  },
+  {
+    "id": "int-004",
+    "topic": "basic-integrals",
+    "promptText": "Find the indefinite integral.",
+    "promptLatex": "\\int \\cos x\\,dx",
+    "answerLatex": "\\sin x + C"
+  }
+]
