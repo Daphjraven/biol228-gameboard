@@ -660,14 +660,20 @@ async function loadQuestionBankFromGitHub() {
   try {
     setStatus('Loading question bank...');
     const res = await fetch(url);
+    const text = await res.text();
+
+    console.log('Question bank response status:', res.status);
+    console.log('Question bank raw response:', text);
+
     if (!res.ok) throw new Error('Fetch failed: ' + res.status);
 
-    const data = await res.json();
+    const data = JSON.parse(text);
     if (!Array.isArray(data)) {
       throw new Error('Question bank must be a JSON array.');
     }
 
     loadedQuestionBank = data;
+    console.log('Loaded question bank:', loadedQuestionBank);
     setStatus(`Loaded ${loadedQuestionBank.length} question(s) from question bank.`);
   } catch (error) {
     console.error(error);
@@ -689,9 +695,45 @@ function normalizeMathAnswer(value) {
 
 function addQuestionMathBlock() {
   if (!loadedQuestionBank.length) {
+    alert('Load a question bank first.');
     setStatus('Load a question bank first.');
     return;
   }
+
+  const question = getRandomQuestionFromBank();
+
+  if (
+    !question ||
+    typeof question !== 'object' ||
+    !question.promptText ||
+    !question.promptLatex ||
+    !question.answerLatex
+  ) {
+    console.error('Invalid question object:', question);
+    alert('Question bank format is invalid.');
+    setStatus('Question bank format is invalid.');
+    return;
+  }
+
+  pieces.push({
+    id: uid(),
+    type: 'question-math',
+    questionId: question.id || uid(),
+    promptText: question.promptText,
+    promptLatex: question.promptLatex,
+    answerLatex: question.answerLatex,
+    value: '',
+    feedback: 'Enter your answer, then click Check.',
+    x: 180 + pieces.length * 10,
+    y: 180 + pieces.length * 10,
+    w: 360,
+    h: 280
+  });
+
+  selected = pieces[pieces.length - 1].id;
+  render();
+  setStatus('Question math block added.');
+}
 
   const question = getRandomQuestionFromBank();
   pieces.push({
