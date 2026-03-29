@@ -267,8 +267,6 @@ label { display:block; margin-top:10px; font-size:14px; }
 <div id="sidebar">
   <h3>Import Data</h3>
   <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/svg+xml,.svg">
-  <textarea id="svgContentInput" placeholder="Paste raw SVG content here if you want to import SVG markup directly..."></textarea>
-  <button type="button" onclick="addSvgContent()">Add SVG Content</button>
   <button type="button" onclick="addTextBox()">Add Text Box</button>
   <button type="button" onclick="addMathBlock()">Add Math Block</button>
 
@@ -352,7 +350,6 @@ const externalUrlInput = document.getElementById('externalUrlInput');
 const statusBox = document.getElementById('status');
 const smilesInput = document.getElementById('smilesInput');
 const mechanismArrowSelect = document.getElementById('mechanismArrowSelect');
-const svgContentInput = document.getElementById('svgContentInput');
 const mediaContextMenu = document.getElementById('mediaContextMenu');
 const saveMediaButton = document.getElementById('saveMediaButton');
 
@@ -667,79 +664,86 @@ function render(){
     });
     el.appendChild(deleteHandle);
 
-    let dragTarget = el;
+let dragTarget = el;
 
-    if (isText) {
-      const dragbar = document.createElement('div');
-      dragbar.className = 'textbox-dragbar';
-      dragbar.textContent = 'Drag text box';
-      el.appendChild(dragbar);
-      dragTarget = dragbar;
+if (isText) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'textbox-dragbar';
+  dragbar.textContent = 'Drag text box';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
 
-      const content = document.createElement('div');
-      content.className = 'textbox-content';
-      content.contentEditable = 'true';
-      content.spellcheck = false;
-      content.textContent = p.text || '';
-      content.addEventListener('input', () => {
-        p.text = content.textContent;
-      });
-      content.addEventListener('click', e => {
-        e.stopPropagation();
-        if (selected !== p.id) {
-          selected = p.id;
-          render();
-        }
-      });
-      el.appendChild(content);
-    } else if (isMath) {
-      const dragbar = document.createElement('div');
-      dragbar.className = 'mathblock-dragbar';
-      dragbar.textContent = 'Drag math block';
-      el.appendChild(dragbar);
-      dragTarget = dragbar;
-
-      const body = document.createElement('div');
-      body.className = 'mathblock-body';
-
-      const prompt = document.createElement('div');
-      prompt.className = 'mathblock-prompt';
-      prompt.textContent = p.prompt || 'Practice math here.';
-      body.appendChild(prompt);
-
-      const field = document.createElement('math-field');
-      field.setAttribute('virtual-keyboard-mode', 'manual');
-      field.value = p.value || '';
-      field.addEventListener('input', () => {
-        p.value = field.value;
-        preview.textContent = p.value || 'Preview will appear here.';
-      });
-      field.addEventListener('click', e => {
-        e.stopPropagation();
-        selected = p.id;
-      });
-      body.appendChild(field);
-
-      const preview = document.createElement('div');
-      preview.className = 'mathblock-preview';
-      preview.textContent = p.value || 'Preview will appear here.';
-      body.appendChild(preview);
-
-      el.appendChild(body);
-    } else {
-      const img = document.createElement('img');
-      img.src = p.src;
-      img.alt = p.name || 'piece';
-      el.appendChild(img);
-
-      el.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        selected = p.id;
-        render();
-        showMediaContextMenu(e.clientX, e.clientY, p.id);
-      });
+  const content = document.createElement('div');
+  content.className = 'textbox-content';
+  content.contentEditable = 'true';
+  content.spellcheck = false;
+  content.textContent = p.text || '';
+  content.addEventListener('input', () => {
+    p.text = content.textContent;
+  });
+  content.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
     }
+  });
+  el.appendChild(content);
+
+} else if (isMath) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'mathblock-dragbar';
+  dragbar.textContent = 'Drag math block';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const body = document.createElement('div');
+  body.className = 'mathblock-body';
+
+  const prompt = document.createElement('div');
+  prompt.className = 'mathblock-prompt';
+  prompt.textContent = p.prompt || 'Practice math here.';
+  body.appendChild(prompt);
+
+  const field = document.createElement('math-field');
+  field.setAttribute('virtual-keyboard-mode', 'manual');
+  field.value = p.value || '';
+  body.appendChild(field);
+
+  const preview = document.createElement('div');
+  preview.className = 'mathblock-preview';
+  preview.textContent = p.value || 'Preview will appear here.';
+  body.appendChild(preview);
+
+  field.addEventListener('input', () => {
+    p.value = field.value;
+    preview.textContent = p.value || 'Preview will appear here.';
+  });
+
+  field.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
+
+  el.appendChild(body);
+
+} else {
+  const img = document.createElement('img');
+  img.src = p.src;
+  img.alt = p.name || 'piece';
+  el.appendChild(img);
+
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    selected = p.id;
+    render();
+    showMediaContextMenu(e.clientX, e.clientY, p.id);
+  });
+}
 
     const handle = document.createElement('div');
     handle.className = 'resize-handle';
