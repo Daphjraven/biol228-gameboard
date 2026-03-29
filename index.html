@@ -188,8 +188,8 @@ body.sidebar-collapsed #sidebar > * {
 
 .delete-handle {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: -6px;
+  right: -6px;
 
   width: 22px;
   height: 22px;
@@ -213,20 +213,16 @@ body.sidebar-collapsed #sidebar > * {
   transition: opacity 0.15s ease, transform 0.1s ease;
 }
 
-/* Show on hover */
 .piece:hover .delete-handle,
 .textbox:hover .delete-handle,
 .mathblock:hover .delete-handle,
-.custom-textbox:hover .delete-handle {
-  display: flex;
-}
-
-/* Also show when selected (optional but nice UX) */
+.custom-textbox:hover .delete-handle,
 .piece.selected .delete-handle,
 .textbox.selected .delete-handle,
 .mathblock.selected .delete-handle,
 .custom-textbox.selected .delete-handle {
   display: flex;
+  opacity: 1;
 }
 
 .delete-handle:hover {
