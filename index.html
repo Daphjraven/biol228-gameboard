@@ -669,7 +669,8 @@ function addMathBlock(){
   pieces.push({
     id: uid(),
     type: 'math',
-    prompt: 'Practice: Enter an expression such as x^2+1 or \\frac{1}{x}.',
+    promptText: 'Practice: Enter an expression such as:',
+    promptLatex: 'x^2+1 \\text{ or } \\frac{1}{x}',
     value: '',
     x: 160 + pieces.length * 10,
     y: 160 + pieces.length * 10,
@@ -994,17 +995,32 @@ function render() {
     } else if (isMath) {
       const dragbar = document.createElement('div');
       dragbar.className = 'mathblock-dragbar';
-      dragbar.textContent = 'Drag math block';
+      dragbar.textContent = 'Drag basic math block';
       el.appendChild(dragbar);
       dragTarget = dragbar;
 
       const body = document.createElement('div');
       body.className = 'mathblock-body';
 
-      const prompt = document.createElement('div');
-      prompt.className = 'mathblock-prompt';
-      prompt.textContent = p.prompt || 'Practice math here.';
-      body.appendChild(prompt);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mathblock-prompt';
+
+      // text part
+      wrapper.textContent = (p.promptText || 'Practice:') + ' ';
+
+      // inline math
+      const inlineMath = document.createElement('math-field');
+      inlineMath.setAttribute('read-only', 'true');
+      inlineMath.setAttribute('virtual-keyboard-mode', 'manual');
+      inlineMath.style.border = 'none';
+      inlineMath.style.background = 'transparent';
+      inlineMath.style.padding = '0';
+      inlineMath.style.display = 'inline-block';
+      inlineMath.value = p.promptLatex || '';
+      inlineMath.style.fontSize = '14px';
+
+      wrapper.appendChild(inlineMath);
+      body.appendChild(wrapper);
 
       const field = document.createElement('math-field');
       field.setAttribute('virtual-keyboard-mode', 'manual');
