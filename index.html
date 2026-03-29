@@ -252,6 +252,15 @@ body.sidebar-collapsed #sidebar > * {
   font-size: 12px;
 }
 
+.custom-textbox-content {
+  flex: 1;
+  padding: 10px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow: auto;
+  min-height: 60px;
+}
+
 .custom-textbox-dragbar {
   padding: 6px 8px;
   background: #eef3fb;
@@ -260,26 +269,8 @@ body.sidebar-collapsed #sidebar > * {
   font-size: 12px;
   color: #566;
   user-select: none;
-}
-
-.custom-textbox-content {
-  flex: 1;
-  padding: 10px;
-  outline: none;
-  white-space: pre-wrap;
-  overflow: auto;
-  min-height: 60px;
-
-  .custom-textbox-dragbar {
-  padding: 6px 8px;
-  background: #eef3fb;
-  border-bottom: 1px solid #d9e0ea;
-  cursor: grab;
-  font-size: 12px;
-  color: #566;
-  user-select: none;
   -webkit-user-select: none;
-  touch-action: none; 
+  touch-action: none;
 }
  
 #mediaContextMenu {
@@ -333,9 +324,17 @@ body.sidebar-collapsed #sidebar > * {
 input[type="text"],
 input[type="password"],
 textarea,
-button,
-input[type="file"],
-select { width:100%; }
+input[type="file"] {
+  width:100%;
+}
+
+button {
+  width:100%;
+}
+
+select {
+  width:auto;
+}
 
 textarea { min-height:90px; resize:vertical; }
 button, input, textarea, select { margin-top:6px; padding:8px; }
