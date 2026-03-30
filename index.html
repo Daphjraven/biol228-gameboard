@@ -299,8 +299,119 @@ body.sidebar-collapsed #sidebar > * {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+
+  .label-station {
+  position: absolute;
+  background: white;
+  border: 2px solid transparent;
+  min-width: 320px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
 }
- 
+
+.label-station.selected {
+  border-color: var(--accent);
+}
+
+.label-station-dragbar {
+  padding: 6px 8px;
+  background: #f3f6fb;
+  border-bottom: 1px solid #d9e0ea;
+  cursor: grab;
+  font-size: 12px;
+  color: #566;
+  user-select: none;
+}
+
+.label-station-body {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.label-station-board {
+  position: relative;
+  border: 1px solid #d9e0ea;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fbfcff;
+  min-height: 220px;
+}
+
+.label-station-board img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.label-station-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #667085;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+}
+
+.label-station-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.label-station-chip {
+  border: 1px solid #d9e0ea;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: white;
+  cursor: grab;
+  user-select: none;
+}
+
+.label-station-zone {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 110px;
+  max-width: 180px;
+  border-radius: 14px;
+  border: 1px solid #d9e0ea;
+  background: rgba(255,255,255,0.94);
+  padding: 8px 10px;
+  font-size: 13px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+}
+
+.label-station-zone.good {
+  background: #dff7e8;
+  border-color: #7dd3a4;
+}
+
+.label-station-zone.bad {
+  background: #fde7e7;
+  border-color: #f1a8a8;
+}
+
+.label-station-zone-index {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #111827;
+  color: white;
+  font-size: 12px;
+  margin-right: 8px;  
+}
+
+  
 #mediaContextMenu {
   position:fixed;
   z-index:1000;
@@ -436,6 +547,44 @@ label { display:block; margin-top:10px; font-size:14px; }
 </select>  
 <button type="button" onclick="addTextBox()">Add Text Block</button>
 
+<h3>BioRender</h3>
+  
+<div id="labelStationControls" style="display:none; margin-top:12px; padding:10px; background:white; border:1px solid #d9e0ea; border-radius:8px;">
+  <h4 style="margin:0 0 8px 0;">Label Station Settings</h4>
+
+  <label for="labelStationTitle">Board title</label>
+  <input type="text" id="labelStationTitle" placeholder="Label Station">
+
+  <label for="labelStationPrompt">Prompt</label>
+  <textarea id="labelStationPrompt" placeholder="Label the diagram."></textarea>
+
+  <label for="labelStationLabels">Labels</label>
+  <textarea id="labelStationLabels" placeholder="Lung|Heart|Accessory Muscles"></textarea>
+
+  <label for="labelStationTeacherAnswer">Next teacher label</label>
+  <input type="text" id="labelStationTeacherAnswer" placeholder="Type label, then click board">
+
+  <label>
+    <input type="checkbox" id="labelStationTeacherMode">
+    Teacher mode
+  </label>
+
+  <label>
+    <input type="checkbox" id="labelStationTypingMode">
+    Typing mode
+  </label>
+
+  <label>
+    <input type="checkbox" id="labelStationShowAnswers">
+    Show answers
+  </label>
+
+  <button type="button" onclick="clearLabelStationZones()">Clear Zones</button>
+</div>
+
+  <button type="button" onclick="addLabelStation()">Add Label Station</button>
+
+  
 <h3>MathRender</h3>
 
   <button type="button" onclick="addPlainMathBlock()">Add Plain Math Block</button>
@@ -543,7 +692,16 @@ const customBgOpacity = document.getElementById('customBgOpacity');
 const customFontSize = document.getElementById('customFontSize');
 const customFontWeight = document.getElementById('customFontWeight');
 const customFontStyle = document.getElementById('customFontStyle');
-const customTextAlign = document.getElementById('customTextAlign'); 
+const customTextAlign = document.getElementById('customTextAlign');
+
+const labelStationControls = document.getElementById('labelStationControls');
+const labelStationTitle = document.getElementById('labelStationTitle');
+const labelStationPrompt = document.getElementById('labelStationPrompt');
+const labelStationLabels = document.getElementById('labelStationLabels');
+const labelStationTeacherAnswer = document.getElementById('labelStationTeacherAnswer');
+const labelStationTeacherMode = document.getElementById('labelStationTeacherMode');
+const labelStationTypingMode = document.getElementById('labelStationTypingMode');
+const labelStationShowAnswers = document.getElementById('labelStationShowAnswers');
   
 const sessionNameInput = document.getElementById('sessionNameInput');
 const githubOwnerInput = document.getElementById('githubOwnerInput');
@@ -946,6 +1104,30 @@ function addQuestionMathBlock() {
   setStatus('Question math block added.');
 }
 
+function addLabelStation() {
+  pieces.push({
+    id: uid(),
+    type: 'label-station',
+    x: 200 + pieces.length * 10,
+    y: 200 + pieces.length * 10,
+    w: 520,
+    h: 420,
+    title: 'Label Station',
+    prompt: 'Label the diagram.',
+    imageSrc: '',
+    labels: ['Label 1', 'Label 2'],
+    zones: [],
+    placements: {},
+    teacherMode: false,
+    typingMode: false,
+    showAnswers: false,
+    draggingLabel: null
+  });
+
+  selected = pieces[pieces.length - 1].id;
+  render();
+}
+  
 async function loadQuestionBankFromGitHub() {
   const url = (questionBankUrlInput.value || '').trim();
   if (!url) {
@@ -1183,6 +1365,65 @@ function updateSelectedCustomTextStyles() {
 
   render();
 }
+
+function getSelectedLabelStation() {
+  return pieces.find(p => p.id === selected && p.type === 'label-station') || null;
+}
+
+function syncLabelStationControls() {
+  const piece = getSelectedLabelStation();
+
+  if (!piece) {
+    labelStationControls.style.display = 'none';
+    return;
+  }
+
+  labelStationControls.style.display = 'block';
+  labelStationTitle.value = piece.title || '';
+  labelStationPrompt.value = piece.prompt || '';
+  labelStationLabels.value = (piece.labels || []).join('|');
+  labelStationTeacherMode.checked = !!piece.teacherMode;
+  labelStationTypingMode.checked = !!piece.typingMode;
+  labelStationShowAnswers.checked = !!piece.showAnswers;
+  labelStationTeacherAnswer.value = '';
+}
+
+function updateSelectedLabelStationFromSidebar() {
+  const piece = getSelectedLabelStation();
+  if (!piece) return;
+
+  piece.title = labelStationTitle.value;
+  piece.prompt = labelStationPrompt.value;
+  piece.labels = labelStationLabels.value.split('|').map(s => s.trim()).filter(Boolean);
+  piece.teacherMode = labelStationTeacherMode.checked;
+  piece.typingMode = labelStationTypingMode.checked;
+  piece.showAnswers = labelStationShowAnswers.checked;
+
+  render();
+}
+
+function clearLabelStationZones() {
+  const piece = getSelectedLabelStation();
+  if (!piece) return;
+
+  piece.zones = [];
+  piece.placements = {};
+  render();
+}
+
+function wireLabelStationControlEvents() {
+  [
+    labelStationTitle,
+    labelStationPrompt,
+    labelStationLabels,
+    labelStationTeacherMode,
+    labelStationTypingMode,
+    labelStationShowAnswers
+  ].forEach(control => {
+    control.addEventListener('input', updateSelectedLabelStationFromSidebar);
+    control.addEventListener('change', updateSelectedLabelStationFromSidebar);
+  });
+}
   
 function render() {
   surface.innerHTML = '';
@@ -1194,13 +1435,15 @@ function render() {
     const isQuestionMath = p.type === 'question-math';
     const isMedia = p.type === 'media';
     const isPlainMath = p.type === 'math-input';
+    const isLabelStation = p.type === 'label-station';
 
     const el = document.createElement('div');
     el.className =
       (
         (isMath || isQuestionMath || isPlainMath) ? 'mathblock' :
+        (isLabelStation ? 'label-station' :
         (isCustomText ? 'custom-textbox' :
-        (isText ? 'textbox' : 'piece'))
+        (isText ? 'textbox' : 'piece')))
       ) + (p.id === selected ? ' selected' : '');
     el.style.left = p.x + 'px';
     el.style.top = p.y + 'px';
@@ -1463,6 +1706,123 @@ content.addEventListener('click', e => {
 
     el.appendChild(body);
 
+} else if (isLabelStation) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'label-station-dragbar';
+  dragbar.textContent = 'Drag label station';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const body = document.createElement('div');
+  body.className = 'label-station-body';
+
+  const board = document.createElement('div');
+  board.className = 'label-station-board';
+
+  if (p.imageSrc) {
+    const img = document.createElement('img');
+    img.src = p.imageSrc;
+    img.alt = p.title || 'Label station board';
+    board.appendChild(img);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'label-station-placeholder';
+    placeholder.textContent = 'No board image yet.';
+    board.appendChild(placeholder);
+  }
+
+  board.addEventListener('click', e => {
+    if (!p.teacherMode) return;
+    const answer = (labelStationTeacherAnswer.value || '').trim();
+    if (!answer) return;
+
+    const rect = board.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const zoneId = 'z' + (p.zones.length + 1);
+    p.zones.push({
+      id: zoneId,
+      answer,
+      x: clamp(x, 0, 100),
+      y: clamp(y, 0, 100)
+    });
+    p.placements[zoneId] = '';
+    labelStationTeacherAnswer.value = '';
+    render();
+  });
+
+  (p.zones || []).forEach((zone, index) => {
+    const placed = p.placements[zone.id] || '';
+    const shownText = p.showAnswers ? zone.answer : (placed || ('Drop ' + (index + 1)));
+    const isCorrect = placed && String(placed).trim().toLowerCase() === String(zone.answer).trim().toLowerCase();
+    const isWrong = placed && !isCorrect;
+
+    const zoneEl = document.createElement('div');
+    zoneEl.className = 'label-station-zone' + (isCorrect ? ' good' : '') + (isWrong ? ' bad' : '');
+    zoneEl.style.left = clamp(zone.x, 5, 95) + '%';
+    zoneEl.style.top = clamp(zone.y, 5, 95) + '%';
+
+    zoneEl.addEventListener('dragover', e => e.preventDefault());
+    zoneEl.addEventListener('drop', e => {
+      e.preventDefault();
+      const label = p.draggingLabel;
+      if (!label) return;
+      p.placements[zone.id] = label;
+      render();
+    });
+
+    if (p.typingMode && !p.showAnswers) {
+      zoneEl.innerHTML = '<span class="label-station-zone-index">' + (index + 1) + '</span>';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = placed;
+      input.style.width = 'calc(100% - 34px)';
+      input.addEventListener('input', e => {
+        p.placements[zone.id] = e.target.value;
+      });
+      input.addEventListener('click', e => e.stopPropagation());
+      zoneEl.appendChild(input);
+    } else {
+      zoneEl.innerHTML = '<span class="label-station-zone-index">' + (index + 1) + '</span><span>' + shownText + '</span>';
+    }
+
+    board.appendChild(zoneEl);
+  });
+
+  const right = document.createElement('div');
+  right.className = 'label-station-sidebar';
+
+  const title = document.createElement('div');
+  title.style.fontWeight = '700';
+  title.textContent = p.title || 'Label Station';
+  right.appendChild(title);
+
+  const prompt = document.createElement('div');
+  prompt.style.fontSize = '13px';
+  prompt.style.color = '#566';
+  prompt.textContent = p.prompt || '';
+  right.appendChild(prompt);
+
+  (p.labels || []).forEach(label => {
+    const chip = document.createElement('div');
+    chip.className = 'label-station-chip';
+    chip.draggable = true;
+    chip.textContent = label;
+    chip.addEventListener('dragstart', () => {
+      p.draggingLabel = label;
+    });
+    chip.addEventListener('dragend', () => {
+      p.draggingLabel = null;
+    });
+    right.appendChild(chip);
+  });
+
+  body.appendChild(board);
+  body.appendChild(right);
+  el.appendChild(body);
+
+    
 } else if (isMedia) {
       const img = document.createElement('img');
       img.src = p.src;
@@ -1570,6 +1930,7 @@ content.addEventListener('click', e => {
   });
 
   syncCustomTextControls();
+  syncLabelStationControls();
 }
 
 function saveSessionUrl(){
@@ -1794,6 +2155,7 @@ window.addEventListener('resize', hideMediaContextMenu);
 (async function boot(){
   initializeRDKit();
   wireCustomTextControlEvents();
+  wireLabelStationControlEvents();
   if (location.hash.startsWith('#json=')) {
     loadSessionUrl();
   } else {
