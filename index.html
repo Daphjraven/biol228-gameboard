@@ -532,6 +532,7 @@ const questionBankUrlInput = document.getElementById('questionBankUrlInput');
 const saveMediaButton = document.getElementById('saveMediaButton');
 const textBoxTypeSelect = document.getElementById('textBoxTypeSelect');
 const customShowHeader = document.getElementById('customShowHeader');
+const canvasEl = document.getElementById('canvas');
 
 const customTextControls = document.getElementById('customTextControls');
 const customBgColor = document.getElementById('customBgColor');
@@ -560,6 +561,20 @@ let sidebarCollapsed = false;
 let RDKitModuleRef = null;
 let contextMenuPieceId = null;
 
+function clearSelection() {
+  if (selected !== null) {
+    selected = null;
+    hideMediaContextMenu();
+    render();
+  }
+}
+
+canvasEl.addEventListener('pointerdown', e => {
+  if (e.target === canvasEl || e.target === surface) {
+    clearSelection();
+  }
+});
+  
 function uid(){ return Math.random().toString(36).slice(2); }
 function setStatus(msg){ statusBox.textContent = msg; }
 function clamp(v, min, max){ return Math.min(max, Math.max(min, v)); }
@@ -1209,23 +1224,22 @@ function render() {
     content.spellcheck = false;
     content.textContent = p.text || '';
 
-    content.addEventListener('input', () => {
-    p.text = content.textContent;
-    });
+    content.addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (selected !== p.id) {
+    selected = p.id;
+  }
+});
 
-    content.addEventListener('click', e => {
-    e.stopPropagation();
-    if (selected !== p.id) {
-      selected = p.id;
-      render();
-    }
-    });
+content.addEventListener('click', e => {
+  e.stopPropagation();
+});
 
     el.appendChild(content);
 
 } else if (isCustomText) {
   let dragbar = null;
-  dragTarget = el; // default: drag from whole box
+  dragTarget = null;
 
   if (p.showHeader !== false) {
     dragbar = document.createElement('div');
@@ -1272,12 +1286,16 @@ function render() {
     p.text = content.textContent;
   });
 
-  content.addEventListener('click', e => {
+  content.addEventListener('pointerdown', e => {
     e.stopPropagation();
     if (selected !== p.id) {
       selected = p.id;
       render();
     }
+  });
+
+  content.addEventListener('click', e => {
+    e.stopPropagation();
   });
 
   el.appendChild(content);
