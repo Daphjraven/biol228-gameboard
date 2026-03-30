@@ -1818,24 +1818,6 @@ board.addEventListener('click', e => {
   setStatus('Placed teacher zone.');
 });
 
-  const rect = board.getBoundingClientRect();
-  const x = ((e.clientX - rect.left) / rect.width) * 100;
-  const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-  const zoneId = 'z' + (p.zones.length + 1);
-  p.zones.push({
-    id: zoneId,
-    answer,
-    x: clamp(x, 0, 100),
-    y: clamp(y, 0, 100)
-  });
-
-  p.placements[zoneId] = '';
-  labelStationTeacherAnswer.value = '';
-  render();
-  setStatus('Placed teacher zone.');
-});
-
 (p.zones || []).forEach((zone, index) => {
   const placed = p.placements[zone.id] || '';
   const shownText = p.showAnswers ? zone.answer : (placed || ('Drop ' + (index + 1)));
