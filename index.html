@@ -234,8 +234,8 @@ body.sidebar-collapsed #sidebar > * {
 .custom-textbox {
   position: absolute;
   background: transparent;
-  min-width: 180px;
-  min-height: 120px;
+  min-width: 100px;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   border: 2px solid #d9e0ea;
@@ -282,11 +282,11 @@ body.sidebar-collapsed #sidebar > * {
 
 .custom-textbox-content {
   flex: 1;
-  padding: 10px;
+  padding: 6px;
   outline: none;
   white-space: pre-wrap;
   overflow: auto;
-  min-height: 60px;
+  min-height: 30px;
 }
 
 .custom-textbox-dragbar {
@@ -437,7 +437,8 @@ label { display:block; margin-top:10px; font-size:14px; }
 <button type="button" onclick="addTextBox()">Add Text Block</button>
 
 <h3>MathRender</h3>
-  
+
+  <button type="button" onclick="addPlainMathBlock()">Add Plain Math Block</button>
   <button type="button" onclick="addMathBlock()">Add Basic Math Block</button>
   <button type="button" onclick="addQuestionMathBlock()">Add Question Math Block</button>
 
@@ -873,6 +874,20 @@ function addTextBox() {
   render();
 }
 
+function addPlainMathBlock() {
+  pieces.push({
+    id: uid(),
+    type: 'math-input',
+    value: '',
+    x: 170 + pieces.length * 10,
+    y: 170 + pieces.length * 10,
+    w: 280,
+    h: 110
+  });
+  selected = pieces[pieces.length - 1].id;
+  render();
+}
+  
 function addMathBlock(){
   pieces.push({
     id: uid(),
@@ -1178,11 +1193,12 @@ function render() {
     const isMath = p.type === 'math';
     const isQuestionMath = p.type === 'question-math';
     const isMedia = p.type === 'media';
+    const isPlainMath = p.type === 'math-input';
 
     const el = document.createElement('div');
     el.className =
       (
-        (isMath || isQuestionMath) ? 'mathblock' :
+        (isMath || isQuestionMath || isPlainMath) ? 'mathblock' :
         (isCustomText ? 'custom-textbox' :
         (isText ? 'textbox' : 'piece'))
       ) + (p.id === selected ? ' selected' : '');
@@ -1351,6 +1367,35 @@ content.addEventListener('click', e => {
   });
 
   el.appendChild(body);
+
+} else if (isPlainMath) {
+  const dragbar = document.createElement('div');
+  dragbar.className = 'mathblock-dragbar';
+  dragbar.textContent = 'Drag plain math block';
+  el.appendChild(dragbar);
+  dragTarget = dragbar;
+
+  const body = document.createElement('div');
+  body.className = 'mathblock-body';
+
+  const field = document.createElement('math-field');
+  field.setAttribute('virtual-keyboard-mode', 'manual');
+  field.value = p.value || '';
+  body.appendChild(field);
+
+  field.addEventListener('input', () => {
+    p.value = field.value;
+  });
+
+  field.addEventListener('click', e => {
+    e.stopPropagation();
+    if (selected !== p.id) {
+      selected = p.id;
+      render();
+    }
+  });
+
+  el.appendChild(body);
     
 } else if (isQuestionMath) {
     const dragbar = document.createElement('div');
@@ -1496,21 +1541,11 @@ content.addEventListener('click', e => {
   const oh = p.h;
 
   function move(ev) {
-    p.w = Math.max((isMath || isQuestionMath) ? 260 : ((isText || isCustomText) ? 140 : 30), ow + (ev.clientX - startX));
-    p.h = Math.max((isMath || isQuestionMath) ? 170 : ((isText || isCustomText) ? 72 : 30), oh + (ev.clientY - startY));
+    p.w = Math.max((isMath || isQuestionMath || isPlainMath) ? 260 : ((isText || isCustomText) ? 100 : 30), ow + (ev.clientX - startX));
+    p.h = Math.max((isMath || isQuestionMath || isPlainMath) ? 90 : ((isText || isCustomText) ? 50 : 30), oh + (ev.clientY - startY));
     el.style.width = p.w + 'px';
     el.style.height = p.h + 'px';
 
-    if (isCustomText) {
-      p.styles = p.styles || {};
-      const scaledSize = Math.round(Math.min(p.w / 10, p.h / 4));
-      p.styles.fontSize = clamp(scaledSize, 10, 48);
-
-      const content = el.querySelector('.custom-textbox-content');
-      if (content) {
-        content.style.fontSize = p.styles.fontSize + 'px';
-      }
-    }
   }
 
   function up() {
